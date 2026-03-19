@@ -1,0 +1,121 @@
+spring:
+  application:
+    name: stablebridge-indexer
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/indexer
+    username: ${DB_USERNAME:indexer}
+    password: ${DB_PASSWORD:indexer}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# ---------------------------------------------------------------------------
+# Indexer configuration
+# ---------------------------------------------------------------------------
+indexer:
+  api:
+    key: ${INDEXER_API_KEY:change-me}
+
+  bloom:
+    backend: redis
+    error-rate: 0.001
+    expected-insertions: 1000000
+
+  chains:
+    ethereum_mainnet:
+      enabled: true
+      type: evm
+      confirmation-strategy: finalized
+      index-native-transfers: false
+      native-decimals: 18
+      start-block: 0
+      poll-interval: 12s
+      batch-size: 10
+      rpc:
+        urls:
+          - ${ETHEREUM_RPC_URL:https://eth-mainnet.g.alchemy.com/v2/demo}
+        timeout: 10s
+        max-retries: 3
+        rate-limit-rps: 25
+        rate-limit-burst: 50
+        batch-size: 50
+        use-block-receipts: false
+      token-contracts:
+        - address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          symbol: USDC
+          decimals: 6
+        - address: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+          symbol: USDT
+          decimals: 6
+        - address: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+          symbol: DAI
+          decimals: 18
+        - address: "0x6c3ea9036406852006290770BEdFcAbA0e23A0e8"
+          symbol: PYUSD
+          decimals: 6
+        - address: "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c"
+          symbol: EURC
+          decimals: 6
+
+    base_mainnet:
+      enabled: false
+      type: evm
+      confirmation-strategy: confirmations
+      min-confirmations: 10
+      index-native-transfers: false
+      native-decimals: 18
+      start-block: 0
+      poll-interval: 2s
+      batch-size: 20
+      rpc:
+        urls:
+          - ${BASE_RPC_URL:https://base-mainnet.g.alchemy.com/v2/demo}
+        timeout: 10s
+        max-retries: 3
+        rate-limit-rps: 25
+        rate-limit-burst: 50
+        batch-size: 50
+        use-block-receipts: true
+      token-contracts:
+        - address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          symbol: USDC
+          decimals: 6
+        - address: "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42"
+          symbol: EURC
+          decimals: 6
