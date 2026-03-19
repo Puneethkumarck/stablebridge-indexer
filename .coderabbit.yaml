@@ -1,0 +1,65 @@
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+
+  path_instructions:
+    - path: "stablebridge-indexer/src/main/java/**/domain/**"
+      instructions: |
+        Domain layer: Verify hexagonal architecture rules.
+        - No Spring imports except @Service, @Transactional, beans.factory.annotation
+        - No JPA imports
+        - No infrastructure imports
+        - Records must use @Builder (no toBuilder)
+        - No wildcard imports
+
+    - path: "stablebridge-indexer/src/main/java/**/infrastructure/**"
+      instructions: |
+        Infrastructure layer: Verify adapter patterns.
+        - ACL DTOs must be package-private
+        - HttpClient must force HTTP_1_1
+        - Must not import application.controller
+        - MapStruct mappers must use componentModel = "spring"
+
+    - path: "stablebridge-indexer/src/main/java/**/application/controller/**"
+      instructions: |
+        Controller layer: Verify thin controller pattern.
+        - Controllers must delegate to domain CommandHandler/QueryHandler directly
+        - No business logic in controllers
+        - No intermediate application service layer
+
+    - path: "**/*Test.java"
+      instructions: |
+        Test code: Verify testing standards.
+        - Single-assert pattern MANDATORY: build expected object, single assertThat with usingRecursiveComparison
+        - NEVER use multiple scattered assertThat(result.field()) calls
+        - BDDMockito only: given()/then(), NEVER when()/verify()
+        - NEVER use any(), anyString(), eq() matchers — use actual values
+        - Only allowed matchers: eqIgnoringTimestamps(), eqIgnoring() from TestUtils
+
+    - path: "**/*IntegrationTest.java"
+      instructions: |
+        Integration tests: Must extend AbstractIntegrationTest.
+        - Use TestContainers for external dependencies
+        - @ActiveProfiles("integration-test")
+        - Real database, no mocks for DB
+
+  tools:
+    shellcheck:
+      enabled: true
+    hadolint:
+      enabled: true
+
+chat:
+  auto_reply: true
