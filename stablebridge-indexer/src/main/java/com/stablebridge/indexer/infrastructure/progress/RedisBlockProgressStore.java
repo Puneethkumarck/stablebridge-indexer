@@ -2,6 +2,7 @@ package com.stablebridge.indexer.infrastructure.progress;
 
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -21,16 +22,13 @@ import java.util.stream.Collectors;
  * all downstream processing is idempotent.
  */
 @Component
+@RequiredArgsConstructor
 public class RedisBlockProgressStore implements BlockProgressStore {
 
     static final String PROGRESS_KEY = "indexer:progress";
     static final String FAILED_KEY_PREFIX = "indexer:failed:";
 
     private final StringRedisTemplate redisTemplate;
-
-    public RedisBlockProgressStore(StringRedisTemplate redisTemplate) {
-        this.redisTemplate = redisTemplate;
-    }
 
     @Override
     public OptionalLong getLastProcessedBlock(ChainId chainId) {
