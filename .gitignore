@@ -1,0 +1,49 @@
+# === Build ===
+build/
+.gradle/
+out/
+bin/
+
+# === IDE ===
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*.swo
+.DS_Store
+
+# === Gradle ===
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# === Local-only: Claude Code & coding standards (NOT committed) ===
+CLAUDE.md
+playbook/
+.claude/
+tasks/
+IMPLEMENTATION_STATE.md
+IMPLEMENTATION_STATE.json
+**/CONTEXT.md
+docs/
+
+# === Secrets & environment ===
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# === Logs ===
+*.log
+logs/
+
+# === Docker ===
+docker-compose.override.yml
+
+# === OWASP ===
+config/owasp-suppressions.xml
