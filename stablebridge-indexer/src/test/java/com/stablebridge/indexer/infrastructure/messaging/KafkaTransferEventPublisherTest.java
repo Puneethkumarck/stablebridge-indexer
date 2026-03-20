@@ -2,9 +2,6 @@ package com.stablebridge.indexer.infrastructure.messaging;
 
 import com.stablebridge.indexer.api.TransferEvent;
 import com.stablebridge.indexer.domain.event.TransferDetectedEvent;
-import com.stablebridge.indexer.domain.model.ChainId;
-import com.stablebridge.indexer.domain.model.Transfer;
-import com.stablebridge.indexer.testutil.TransferFixtures;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,6 +12,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import java.time.Instant;
 import java.util.List;
 
+import static com.stablebridge.indexer.domain.model.ChainId.POLYGON;
+import static com.stablebridge.indexer.testutil.TransferFixtures.DEFAULT_TO_ADDRESS;
+import static com.stablebridge.indexer.testutil.TransferFixtures.aTransfer;
+import static com.stablebridge.indexer.testutil.TransferFixtures.aTransferDetectedEvent;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -32,11 +33,10 @@ class KafkaTransferEventPublisherTest {
 
     @Test
     void publish_sendsToCorrectTopicWithToAddressKey() {
-        // given
-        TransferDetectedEvent event = TransferFixtures.aTransferDetectedEvent().build();
-        Transfer transfer = event.transfer();
+        var event = aTransferDetectedEvent().build();
+        var transfer = event.transfer();
 
-        TransferEvent expectedApiEvent = new TransferEvent(
+        var expectedApiEvent = new TransferEvent(
                 transfer.txHash(),
                 transfer.fromAddress(),
                 transfer.toAddress(),
@@ -57,28 +57,25 @@ class KafkaTransferEventPublisherTest {
 
         given(transferEventMapper.toTransferEvent(event)).willReturn(expectedApiEvent);
 
-        // when
         publisher.publish(event);
 
-        // then
         then(kafkaTemplate).should().send(
                 "transfer.events.ETHEREUM",
-                TransferFixtures.DEFAULT_TO_ADDRESS,
+                DEFAULT_TO_ADDRESS,
                 expectedApiEvent);
     }
 
     @Test
     void publish_usesChainIdForTopicName() {
-        // given
-        Transfer polygonTransfer = TransferFixtures.aTransfer()
-                .chainId(ChainId.POLYGON)
+        var polygonTransfer = aTransfer()
+                .chainId(POLYGON)
                 .build();
-        TransferDetectedEvent event = TransferDetectedEvent.builder()
+        var event = TransferDetectedEvent.builder()
                 .transfer(polygonTransfer)
                 .detectedAt(Instant.parse("2026-03-19T10:15:31Z"))
                 .build();
 
-        TransferEvent expectedApiEvent = new TransferEvent(
+        var expectedApiEvent = new TransferEvent(
                 polygonTransfer.txHash(),
                 polygonTransfer.fromAddress(),
                 polygonTransfer.toAddress(),
@@ -99,36 +96,33 @@ class KafkaTransferEventPublisherTest {
 
         given(transferEventMapper.toTransferEvent(event)).willReturn(expectedApiEvent);
 
-        // when
         publisher.publish(event);
 
-        // then
         then(kafkaTemplate).should().send(
                 "transfer.events.POLYGON",
-                TransferFixtures.DEFAULT_TO_ADDRESS,
+                DEFAULT_TO_ADDRESS,
                 expectedApiEvent);
     }
 
     @Test
     void publishAll_sendsEachEventIndividually() {
-        // given
-        Transfer firstTransfer = TransferFixtures.aTransfer()
+        var firstTransfer = aTransfer()
                 .toAddress("0xfirst1234567890abcdef1234567890abcdef1234")
                 .build();
-        Transfer secondTransfer = TransferFixtures.aTransfer()
+        var secondTransfer = aTransfer()
                 .toAddress("0xsecond234567890abcdef1234567890abcdef1234")
                 .build();
 
-        TransferDetectedEvent firstEvent = TransferDetectedEvent.builder()
+        var firstEvent = TransferDetectedEvent.builder()
                 .transfer(firstTransfer)
                 .detectedAt(Instant.parse("2026-03-19T10:15:31Z"))
                 .build();
-        TransferDetectedEvent secondEvent = TransferDetectedEvent.builder()
+        var secondEvent = TransferDetectedEvent.builder()
                 .transfer(secondTransfer)
                 .detectedAt(Instant.parse("2026-03-19T10:15:32Z"))
                 .build();
 
-        TransferEvent firstApiEvent = new TransferEvent(
+        var firstApiEvent = new TransferEvent(
                 firstTransfer.txHash(),
                 firstTransfer.fromAddress(),
                 firstTransfer.toAddress(),
@@ -147,7 +141,7 @@ class KafkaTransferEventPublisherTest {
                 firstTransfer.nativeTransfer(),
                 firstEvent.detectedAt());
 
-        TransferEvent secondApiEvent = new TransferEvent(
+        var secondApiEvent = new TransferEvent(
                 secondTransfer.txHash(),
                 secondTransfer.fromAddress(),
                 secondTransfer.toAddress(),
@@ -169,10 +163,8 @@ class KafkaTransferEventPublisherTest {
         given(transferEventMapper.toTransferEvent(firstEvent)).willReturn(firstApiEvent);
         given(transferEventMapper.toTransferEvent(secondEvent)).willReturn(secondApiEvent);
 
-        // when
         publisher.publishAll(List.of(firstEvent, secondEvent));
 
-        // then
         then(kafkaTemplate).should().send(
                 "transfer.events.ETHEREUM",
                 "0xfirst1234567890abcdef1234567890abcdef1234",
