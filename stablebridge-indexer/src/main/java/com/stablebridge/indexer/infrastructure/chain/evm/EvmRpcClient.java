@@ -74,17 +74,16 @@ class EvmRpcClient {
         var body = serializeRequest(request);
         var httpResponse = executeHttpPost(body, "eth_getBlockReceipts");
 
+        final JsonRpcResponse<List<EvmReceipt>> rpcResponse;
         try {
-            var rpcResponse = JSON_MAPPER.readValue(
+            rpcResponse = JSON_MAPPER.readValue(
                     httpResponse,
                     new TypeReference<JsonRpcResponse<List<EvmReceipt>>>() {});
-            validateResponse(rpcResponse, "eth_getBlockReceipts");
-            return rpcResponse.result() != null ? rpcResponse.result() : List.of();
-        } catch (EvmRpcException e) {
-            throw e;
         } catch (Exception e) {
             throw EvmRpcException.parseError("eth_getBlockReceipts", e);
         }
+        validateResponse(rpcResponse, "eth_getBlockReceipts");
+        return rpcResponse.result() != null ? rpcResponse.result() : List.of();
     }
 
     boolean supportsBlockReceipts() {
@@ -99,38 +98,36 @@ class EvmRpcClient {
         var body = serializeRequest(requests);
         var httpResponse = executeHttpPost(body, "eth_getTransactionReceipt[batch]");
 
+        final List<JsonRpcResponse<EvmReceipt>> responses;
         try {
-            var responses = JSON_MAPPER.readValue(
+            responses = JSON_MAPPER.readValue(
                     httpResponse,
                     new TypeReference<List<JsonRpcResponse<EvmReceipt>>>() {});
-
-            return responses.stream()
-                    .peek(response -> validateResponse(response, "eth_getTransactionReceipt"))
-                    .map(JsonRpcResponse::result)
-                    .filter(Objects::nonNull)
-                    .toList();
-        } catch (EvmRpcException e) {
-            throw e;
         } catch (Exception e) {
             throw EvmRpcException.parseError("eth_getTransactionReceipt[batch]", e);
         }
+
+        return responses.stream()
+                .peek(response -> validateResponse(response, "eth_getTransactionReceipt"))
+                .map(JsonRpcResponse::result)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private <T> T sendSingleRequest(JsonRpcRequest request, Class<T> resultType) {
         var body = serializeRequest(request);
         var httpResponse = executeHttpPost(body, request.method());
 
+        var typeRef = JSON_MAPPER.getTypeFactory()
+                .constructParametricType(JsonRpcResponse.class, resultType);
+        final JsonRpcResponse<T> rpcResponse;
         try {
-            var typeRef = JSON_MAPPER.getTypeFactory()
-                    .constructParametricType(JsonRpcResponse.class, resultType);
-            JsonRpcResponse<T> rpcResponse = JSON_MAPPER.readValue(httpResponse, typeRef);
-            validateResponse(rpcResponse, request.method());
-            return rpcResponse.result();
-        } catch (EvmRpcException e) {
-            throw e;
+            rpcResponse = JSON_MAPPER.readValue(httpResponse, typeRef);
         } catch (Exception e) {
             throw EvmRpcException.parseError(request.method(), e);
         }
+        validateResponse(rpcResponse, request.method());
+        return rpcResponse.result();
     }
 
     private String serializeRequest(Object request) {
