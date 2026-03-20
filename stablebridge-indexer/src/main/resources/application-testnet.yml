@@ -1,0 +1,108 @@
+# ---------------------------------------------------------------------------
+# Testnet profile — overrides application.yml for testnet chain testing
+# Activate with: --spring.profiles.active=testnet
+# ---------------------------------------------------------------------------
+
+indexer:
+  bloom:
+    expected-insertions: 10000
+
+  chains:
+    # Disable all mainnet chains
+    ethereum_mainnet:
+      enabled: false
+    base_mainnet:
+      enabled: false
+    solana_mainnet:
+      enabled: false
+    bitcoin_mainnet:
+      enabled: false
+
+    # --- EVM: Sepolia ---
+    sepolia:
+      enabled: true
+      type: evm
+      confirmation-strategy: finalized
+      index-native-transfers: true
+      native-decimals: 18
+      start-block: 0
+      poll-interval: 12s
+      batch-size: 5
+      rpc:
+        urls:
+          - ${SEPOLIA_RPC_URL:https://eth-sepolia.g.alchemy.com/v2/demo}
+        timeout: 15s
+        max-retries: 3
+        rate-limit-rps: 10
+        rate-limit-burst: 20
+        batch-size: 50
+        use-block-receipts: false
+      token-contracts:
+        - address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+          symbol: USDC
+          decimals: 6
+        - address: "0x7169D38820dfd117C3FA1f22a697dBA58d90BA06"
+          symbol: USDT
+          decimals: 6
+
+    # --- EVM: Base Sepolia ---
+    base_sepolia:
+      enabled: true
+      type: evm
+      confirmation-strategy: confirmations
+      min-confirmations: 5
+      index-native-transfers: true
+      native-decimals: 18
+      start-block: 0
+      poll-interval: 2s
+      batch-size: 10
+      rpc:
+        urls:
+          - ${BASE_SEPOLIA_RPC_URL:https://base-sepolia.g.alchemy.com/v2/demo}
+        timeout: 15s
+        max-retries: 3
+        rate-limit-rps: 10
+        rate-limit-burst: 20
+        batch-size: 50
+        use-block-receipts: true
+      token-contracts:
+        - address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+          symbol: USDC
+          decimals: 6
+
+    # --- Solana Devnet ---
+    solana_devnet:
+      enabled: true
+      type: solana
+      confirmation-strategy: finalized
+      index-native-transfers: true
+      native-decimals: 9
+      start-block: 0
+      poll-interval: 1s
+      batch-size: 5
+      rpc:
+        urls:
+          - ${SOLANA_DEVNET_RPC_URL:https://api.devnet.solana.com}
+        timeout: 15s
+      token-contracts:
+        - address: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+          symbol: USDC
+          decimals: 6
+
+    # --- Bitcoin Testnet ---
+    bitcoin_testnet:
+      enabled: false                          # Enable when Bitcoin Core testnet node is available
+      type: bitcoin
+      confirmation-strategy: confirmations
+      min-confirmations: 1
+      index-native-transfers: true
+      native-decimals: 8
+      start-block: 0
+      poll-interval: 30s
+      batch-size: 3
+      rpc:
+        urls:
+          - ${BITCOIN_TESTNET_RPC_URL:http://localhost:18332}
+        timeout: 30s
+        username: ${BITCOIN_RPC_USERNAME:bitcoin}
+        password: ${BITCOIN_RPC_PASSWORD:bitcoin}

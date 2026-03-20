@@ -1,0 +1,104 @@
+.PHONY: help build test integration-test clean run run-testnet \
+       infra-up infra-down infra-status infra-logs \
+       smoke-test register-wallet check-status \
+       docker-build terraform-init terraform-up terraform-down
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# ---------------------------------------------------------------------------
+# Build & Test
+# ---------------------------------------------------------------------------
+build: ## Build everything (compile + Spotless + tests)
+	./gradlew build
+
+test: ## Run unit tests only
+	./gradlew test
+
+integration-test: ## Run integration tests (requires Docker services)
+	./gradlew integrationTest
+
+clean: ## Clean build artifacts
+	./gradlew clean
+
+# ---------------------------------------------------------------------------
+# Run Application
+# ---------------------------------------------------------------------------
+run: ## Run with default profile (mainnet config)
+	./gradlew :stablebridge-indexer:bootRun
+
+run-testnet: ## Run with testnet profile (Sepolia, Base Sepolia, Solana Devnet)
+	./gradlew :stablebridge-indexer:bootRun --args='--spring.profiles.active=testnet'
+
+# ---------------------------------------------------------------------------
+# Docker Compose Infrastructure
+# ---------------------------------------------------------------------------
+infra-up: ## Start local infrastructure (PostgreSQL, Redis, Redpanda, Prometheus, Grafana)
+	docker compose up -d
+
+infra-down: ## Stop local infrastructure
+	docker compose down
+
+infra-clean: ## Stop infrastructure and delete all volumes
+	docker compose down -v
+
+infra-status: ## Show infrastructure container status
+	docker compose ps
+
+infra-logs: ## Tail infrastructure logs
+	docker compose logs -f
+
+# ---------------------------------------------------------------------------
+# Terraform Local Infrastructure
+# ---------------------------------------------------------------------------
+terraform-init: ## Initialize Terraform (local Docker provider)
+	cd infra/terraform && terraform init
+
+terraform-plan: ## Show Terraform execution plan
+	cd infra/terraform && terraform plan
+
+terraform-up: ## Provision local infrastructure via Terraform
+	cd infra/terraform && terraform apply -auto-approve
+
+terraform-down: ## Destroy Terraform-managed infrastructure
+	cd infra/terraform && terraform destroy -auto-approve
+
+# ---------------------------------------------------------------------------
+# Docker Image
+# ---------------------------------------------------------------------------
+docker-build: ## Build production Docker image via Jib
+	./gradlew :stablebridge-indexer:jibDockerBuild
+
+# ---------------------------------------------------------------------------
+# Testnet Operations
+# ---------------------------------------------------------------------------
+smoke-test: ## Run smoke test against running indexer
+	./scripts/smoke-test.sh
+
+register-wallet: ## Register a test wallet (usage: make register-wallet ADDR=0x... TYPE=EVM)
+	@curl -s -X POST http://localhost:8080/api/v1/wallets \
+		-H "X-API-Key: $${INDEXER_API_KEY:-change-me}" \
+		-H "Content-Type: application/json" \
+		-d '{"address": "$(ADDR)", "networkType": "$(TYPE)"}' | jq .
+
+check-status: ## Check all chain statuses
+	@curl -s -H "X-API-Key: $${INDEXER_API_KEY:-change-me}" \
+		http://localhost:8080/api/v1/status | jq .
+
+check-health: ## Check actuator health
+	@curl -s http://localhost:8081/actuator/health | jq .
+
+check-redis: ## Show Redis block progress and Bloom stats
+	@echo "=== Block Progress ==="
+	@docker exec indexer-redis redis-cli HGETALL indexer:progress
+	@echo "\n=== Bloom Filter: EVM ==="
+	@docker exec indexer-redis redis-cli BF.INFO indexer:bloom:EVM 2>/dev/null || echo "(not initialized)"
+	@echo "\n=== Bloom Filter: SOLANA ==="
+	@docker exec indexer-redis redis-cli BF.INFO indexer:bloom:SOLANA 2>/dev/null || echo "(not initialized)"
+
+check-kafka: ## List Kafka topics and message counts
+	@docker exec indexer-redpanda rpk topic list --brokers localhost:9092
