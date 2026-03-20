@@ -1,8 +1,6 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory.EvmChainConfig;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory.TokenConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -69,11 +67,11 @@ class EvmChainIndexerFactoryTest {
         void createsChainIndexerWithMultipleTokenContracts() {
             // given
             var tokenContracts = List.of(
-                    TokenConfig.builder().address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+                    EvmChainTokenConfig.builder().address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
                             .symbol("USDC").decimals(6).build(),
-                    TokenConfig.builder().address("0xdAC17F958D2ee523a2206206994597C13D831ec7")
+                    EvmChainTokenConfig.builder().address("0xdAC17F958D2ee523a2206206994597C13D831ec7")
                             .symbol("USDT").decimals(6).build(),
-                    TokenConfig.builder().address("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+                    EvmChainTokenConfig.builder().address("0x6B175474E89094C44Da98b954EedeAC495271d0F")
                             .symbol("DAI").decimals(18).build()
             );
             var config = anEvmChainConfigWithTokens("ethereum_mainnet", tokenContracts);
@@ -132,7 +130,7 @@ class EvmChainIndexerFactoryTest {
                 .indexNativeTransfers(false)
                 .nativeDecimals(18)
                 .tokenContracts(List.of(
-                        TokenConfig.builder()
+                        EvmChainTokenConfig.builder()
                                 .address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
                                 .symbol("USDC")
                                 .decimals(6)
@@ -141,7 +139,7 @@ class EvmChainIndexerFactoryTest {
     }
 
     private static EvmChainConfig anEvmChainConfigWithTokens(String networkId,
-                                                               List<TokenConfig> tokenContracts) {
+                                                               List<EvmChainTokenConfig> tokenContracts) {
         return EvmChainConfig.builder()
                 .networkId(networkId)
                 .rpcUrl("https://rpc.example.com/v2/demo")

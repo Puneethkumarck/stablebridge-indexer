@@ -3,11 +3,9 @@ package com.stablebridge.indexer.infrastructure.chain.evm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.port.ChainIndexer;
-import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -76,7 +74,7 @@ public class EvmChainIndexerFactory {
         return chainId;
     }
 
-    private static List<EvmTokenConfig> mapTokenContracts(List<TokenConfig> tokenContracts) {
+    private static List<EvmTokenConfig> mapTokenContracts(List<EvmChainTokenConfig> tokenContracts) {
         return tokenContracts.stream()
                 .map(tc -> EvmTokenConfig.builder()
                         .address(tc.address())
@@ -86,27 +84,4 @@ public class EvmChainIndexerFactory {
                 .toList();
     }
 
-    @Builder(toBuilder = true)
-    public record EvmChainConfig(
-            String networkId,
-            String rpcUrl,
-            int rpcBatchSize,
-            boolean useBlockReceipts,
-            Duration rpcTimeout,
-            int maxRetries,
-            int rateLimitRps,
-            int rateLimitBurst,
-            boolean useFinalizedTag,
-            int minConfirmations,
-            boolean indexNativeTransfers,
-            int nativeDecimals,
-            List<TokenConfig> tokenContracts
-    ) {}
-
-    @Builder(toBuilder = true)
-    public record TokenConfig(
-            String address,
-            String symbol,
-            int decimals
-    ) {}
 }

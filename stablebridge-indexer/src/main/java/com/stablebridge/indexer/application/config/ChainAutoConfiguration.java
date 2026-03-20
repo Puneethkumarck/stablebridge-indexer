@@ -5,9 +5,9 @@ import com.stablebridge.indexer.application.properties.ChainProperties;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
 import com.stablebridge.indexer.application.properties.TokenContractProperties;
 import com.stablebridge.indexer.domain.port.ChainIndexer;
+import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory.EvmChainConfig;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory.TokenConfig;
+import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,9 +62,9 @@ class ChainAutoConfiguration {
                 .build();
     }
 
-    private static List<TokenConfig> mapTokenContracts(List<TokenContractProperties> tokenContracts) {
+    private static List<EvmChainTokenConfig> mapTokenContracts(List<TokenContractProperties> tokenContracts) {
         return tokenContracts.stream()
-                .map(tc -> TokenConfig.builder()
+                .map(tc -> EvmChainTokenConfig.builder()
                         .address(tc.address())
                         .symbol(tc.symbol())
                         .decimals(tc.decimals())
