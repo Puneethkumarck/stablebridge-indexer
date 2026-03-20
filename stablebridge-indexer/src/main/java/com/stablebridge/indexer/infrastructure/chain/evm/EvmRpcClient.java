@@ -11,10 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.IntStream;
 
 @Slf4j
 class EvmRpcClient {
@@ -61,14 +62,11 @@ class EvmRpcClient {
             return List.of();
         }
 
-        var allReceipts = new ArrayList<EvmReceipt>();
-        for (var i = 0; i < txHashes.size(); i += batchSize) {
-            var batchEnd = Math.min(i + batchSize, txHashes.size());
-            var batch = txHashes.subList(i, batchEnd);
-            var batchReceipts = sendBatchReceiptRequests(batch);
-            allReceipts.addAll(batchReceipts);
-        }
-        return List.copyOf(allReceipts);
+        return IntStream.iterate(0, i -> i < txHashes.size(), i -> i + batchSize)
+                .mapToObj(i -> txHashes.subList(i, Math.min(i + batchSize, txHashes.size())))
+                .map(this::sendBatchReceiptRequests)
+                .flatMap(List::stream)
+                .toList();
     }
 
     List<EvmReceipt> getBlockReceipts(long blockNumber) {
@@ -97,11 +95,9 @@ class EvmRpcClient {
     }
 
     private List<EvmReceipt> sendBatchReceiptRequests(List<String> txHashes) {
-        var requests = new ArrayList<JsonRpcRequest>(txHashes.size());
-        for (var txHash : txHashes) {
-            requests.add(JsonRpcRequest.of(
-                    "eth_getTransactionReceipt", List.of(txHash), nextId()));
-        }
+        var requests = txHashes.stream()
+                .map(txHash -> JsonRpcRequest.of("eth_getTransactionReceipt", List.of(txHash), nextId()))
+                .toList();
 
         var body = serializeRequest(requests);
         var httpResponse = executeHttpPost(body, "eth_getTransactionReceipt[batch]");
@@ -111,14 +107,11 @@ class EvmRpcClient {
                     httpResponse,
                     new TypeReference<List<JsonRpcResponse<EvmReceipt>>>() {});
 
-            var receipts = new ArrayList<EvmReceipt>(responses.size());
-            for (var response : responses) {
-                validateResponse(response, "eth_getTransactionReceipt");
-                if (response.result() != null) {
-                    receipts.add(response.result());
-                }
-            }
-            return receipts;
+            return responses.stream()
+                    .peek(response -> validateResponse(response, "eth_getTransactionReceipt"))
+                    .map(JsonRpcResponse::result)
+                    .filter(Objects::nonNull)
+                    .toList();
         } catch (EvmRpcException e) {
             throw e;
         } catch (JsonProcessingException e) {
