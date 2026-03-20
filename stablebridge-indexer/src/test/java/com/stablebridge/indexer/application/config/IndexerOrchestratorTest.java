@@ -213,7 +213,7 @@ class IndexerOrchestratorTest {
                 10,
                 new RpcProperties(
                         List.of("https://rpc.example.com"),
-                        50, false, Duration.ofSeconds(10), 3, 25, 50),
+                        50, false, Duration.ofSeconds(10), 3, 25, 50, null, null),
                 List.of(new TokenContractProperties(
                         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "USDC", 6))
         );

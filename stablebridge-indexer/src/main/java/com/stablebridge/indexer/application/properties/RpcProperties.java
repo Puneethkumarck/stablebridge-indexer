@@ -15,6 +15,8 @@ import java.util.List;
  * @param maxRetries       maximum retry attempts before marking a request as failed
  * @param rateLimitRps     maximum requests per second to the RPC provider
  * @param rateLimitBurst   burst capacity for the rate limiter
+ * @param username         optional RPC basic-auth username (used by Bitcoin Core)
+ * @param password         optional RPC basic-auth password (used by Bitcoin Core)
  */
 public record RpcProperties(
         List<String> urls,
@@ -23,7 +25,9 @@ public record RpcProperties(
         Duration timeout,
         int maxRetries,
         int rateLimitRps,
-        int rateLimitBurst
+        int rateLimitBurst,
+        String username,
+        String password
 ) {
 
     public RpcProperties {

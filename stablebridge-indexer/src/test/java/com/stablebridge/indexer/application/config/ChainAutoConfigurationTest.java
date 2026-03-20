@@ -5,6 +5,7 @@ import com.stablebridge.indexer.application.properties.ConfirmationStrategy;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
 import com.stablebridge.indexer.application.properties.RpcProperties;
 import com.stablebridge.indexer.application.properties.TokenContractProperties;
+import com.stablebridge.indexer.infrastructure.chain.bitcoin.BitcoinChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
 import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainConfig;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.stablebridge.indexer.domain.model.ChainId.BASE;
+import static com.stablebridge.indexer.domain.model.ChainId.BITCOIN_CHAIN;
 import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
 import static com.stablebridge.indexer.domain.model.ChainId.SOLANA_CHAIN;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -90,6 +92,58 @@ class ChainAutoConfigurationTest {
             // then
             assertThat(indexers).hasSize(1);
             assertThat(indexers.getFirst().getChainId()).isEqualTo(SOLANA_CHAIN);
+        }
+
+        @Test
+        @DisplayName("creates Bitcoin chain indexers for enabled Bitcoin chains")
+        void createsBitcoinChainIndexersForEnabledBitcoinChains() {
+            // given
+            var chains = new LinkedHashMap<String, ChainProperties>();
+            chains.put("bitcoin_mainnet", aBitcoinChainProperties(true, 6));
+
+            var indexerProperties = new IndexerProperties(chains, null, null);
+
+            // when
+            var indexers = configuration.chainIndexers(indexerProperties, METER_REGISTRY);
+
+            // then
+            assertThat(indexers).hasSize(1);
+            assertThat(indexers.getFirst().getChainId()).isEqualTo(BITCOIN_CHAIN);
+        }
+
+        @Test
+        @DisplayName("combines EVM and Bitcoin chain indexers")
+        void combinesEvmAndBitcoinChainIndexers() {
+            // given
+            var chains = new LinkedHashMap<String, ChainProperties>();
+            chains.put("ethereum_mainnet", anEvmChainProperties(true, ConfirmationStrategy.FINALIZED, 0));
+            chains.put("bitcoin_mainnet", aBitcoinChainProperties(true, 6));
+
+            var indexerProperties = new IndexerProperties(chains, null, null);
+
+            // when
+            var indexers = configuration.chainIndexers(indexerProperties, METER_REGISTRY);
+
+            // then
+            assertThat(indexers).hasSize(2);
+            assertThat(indexers.stream().map(i -> i.getChainId()).toList())
+                    .containsExactly(ETHEREUM, BITCOIN_CHAIN);
+        }
+
+        @Test
+        @DisplayName("skips disabled Bitcoin chains")
+        void skipsDisabledBitcoinChains() {
+            // given
+            var chains = new LinkedHashMap<String, ChainProperties>();
+            chains.put("bitcoin_mainnet", aBitcoinChainProperties(false, 6));
+
+            var indexerProperties = new IndexerProperties(chains, null, null);
+
+            // when
+            var indexers = configuration.chainIndexers(indexerProperties, METER_REGISTRY);
+
+            // then
+            assertThat(indexers).isEmpty();
         }
 
         @Test
@@ -233,6 +287,35 @@ class ChainAutoConfigurationTest {
         }
     }
 
+    @Nested
+    @DisplayName("toBitcoinChainConfig")
+    class ToBitcoinChainConfig {
+
+        @Test
+        @DisplayName("maps chain properties to Bitcoin chain config correctly")
+        void mapsChainPropertiesToBitcoinChainConfigCorrectly() {
+            // given
+            var chainProperties = aBitcoinChainProperties(true, 6);
+
+            var expected = BitcoinChainConfig.builder()
+                    .networkId("bitcoin_mainnet")
+                    .rpcUrl("http://localhost:8332")
+                    .rpcUsername("bitcoin")
+                    .rpcPassword("secret")
+                    .rpcTimeout(Duration.ofSeconds(10))
+                    .minConfirmations(6)
+                    .build();
+
+            // when
+            var result = ChainAutoConfiguration.toBitcoinChainConfig("bitcoin_mainnet", chainProperties);
+
+            // then
+            assertThat(result)
+                    .usingRecursiveComparison()
+                    .isEqualTo(expected);
+        }
+    }
+
     // -- Factory methods for test chain properties --
 
     private static ChainProperties anEvmChainProperties(boolean enabled,
@@ -251,6 +334,22 @@ class ChainAutoConfigurationTest {
                 aRpcProperties(),
                 List.of(new TokenContractProperties(
                         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", "USDC", 6))
+        );
+    }
+
+    private static ChainProperties aBitcoinChainProperties(boolean enabled, int minConfirmations) {
+        return new ChainProperties(
+                enabled,
+                "bitcoin",
+                ConfirmationStrategy.CONFIRMATIONS,
+                minConfirmations,
+                true,
+                8,
+                0L,
+                Duration.ofMinutes(10),
+                1,
+                aBitcoinRpcProperties(),
+                List.of()
         );
     }
 
@@ -279,7 +378,23 @@ class ChainAutoConfigurationTest {
                 Duration.ofSeconds(10),
                 3,
                 25,
-                50
+                50,
+                null,
+                null
+        );
+    }
+
+    private static RpcProperties aBitcoinRpcProperties() {
+        return new RpcProperties(
+                List.of("http://localhost:8332"),
+                50,
+                false,
+                Duration.ofSeconds(10),
+                3,
+                25,
+                50,
+                "bitcoin",
+                "secret"
         );
     }
 }
