@@ -1,15 +1,11 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
+import lombok.experimental.UtilityClass;
+
 import java.time.Instant;
 
-/**
- * Utility for converting between hex-encoded EVM values and Java types.
- */
-final class HexUtils {
-
-    private HexUtils() {
-        // utility class
-    }
+@UtilityClass
+class HexUtils {
 
     static long hexToLong(String hex) {
         if (hex == null || hex.isBlank()) {
