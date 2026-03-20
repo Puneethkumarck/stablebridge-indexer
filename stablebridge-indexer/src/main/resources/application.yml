@@ -46,6 +46,32 @@ management:
       show-details: always
 
 # ---------------------------------------------------------------------------
+# Resilience4j defaults (programmatic config per chain overrides these)
+# ---------------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-type: COUNT_BASED
+        register-health-indicator: true
+  retry:
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+  ratelimiter:
+    configs:
+      default:
+        limit-for-period: 25
+        limit-refresh-period: 1s
+        timeout-duration: 5s
+
+# ---------------------------------------------------------------------------
 # Indexer configuration
 # ---------------------------------------------------------------------------
 indexer:
