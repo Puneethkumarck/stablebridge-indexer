@@ -21,7 +21,7 @@ public class CatchupWorker extends BaseWorker {
 
     private final int chunkSize;
 
-    protected CatchupWorker(
+    public CatchupWorker(
             ChainIndexer chainIndexer,
             AddressFilter addressFilter,
             TransferEventPublisher transferEventPublisher,

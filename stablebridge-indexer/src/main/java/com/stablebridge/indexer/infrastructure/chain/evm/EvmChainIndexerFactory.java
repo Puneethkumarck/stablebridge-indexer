@@ -67,7 +67,7 @@ public class EvmChainIndexerFactory {
         );
     }
 
-    static ChainId resolveChainId(String networkId) {
+    public static ChainId resolveChainId(String networkId) {
         var chainId = NETWORK_ID_TO_CHAIN_ID.get(networkId);
         if (chainId == null) {
             throw new IllegalArgumentException(
