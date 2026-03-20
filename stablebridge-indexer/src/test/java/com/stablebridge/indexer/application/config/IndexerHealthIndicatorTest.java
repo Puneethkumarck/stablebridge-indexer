@@ -1,10 +1,5 @@
 package com.stablebridge.indexer.application.config;
 
-import com.stablebridge.indexer.domain.event.TransferDetectedEvent;
-import com.stablebridge.indexer.domain.model.BlockResult;
-import com.stablebridge.indexer.domain.model.ChainId;
-import com.stablebridge.indexer.domain.model.NetworkType;
-import com.stablebridge.indexer.domain.model.WalletAddress;
 import com.stablebridge.indexer.domain.model.WorkerType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
@@ -23,15 +18,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.health.contributor.Status;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalLong;
-import java.util.Set;
 
 import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
 import static com.stablebridge.indexer.domain.model.WorkerType.REGULAR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("IndexerHealthIndicator")
@@ -111,135 +103,32 @@ class IndexerHealthIndicatorTest {
     }
 
     private static TestWorker createTestWorker() {
-        var meterRegistry = new SimpleMeterRegistry();
-        return new TestWorker(meterRegistry);
+        var chainIndexer = mock(ChainIndexer.class);
+        given(chainIndexer.getChainId()).willReturn(ETHEREUM);
+        return new TestWorker(
+                chainIndexer,
+                mock(AddressFilter.class),
+                mock(TransferEventPublisher.class),
+                mock(BlockProgressStore.class),
+                mock(WalletAddressRepository.class),
+                new SimpleMeterRegistry());
     }
 
     private static class TestWorker extends BaseWorker {
 
-        TestWorker(MeterRegistry meterRegistry) {
-            super(
-                    new StubChainIndexer(),
-                    new StubAddressFilter(),
-                    new StubTransferEventPublisher(),
-                    new StubBlockProgressStore(),
-                    new StubWalletAddressRepository(),
-                    meterRegistry);
+        TestWorker(ChainIndexer chainIndexer,
+                   AddressFilter addressFilter,
+                   TransferEventPublisher transferEventPublisher,
+                   BlockProgressStore blockProgressStore,
+                   WalletAddressRepository walletAddressRepository,
+                   MeterRegistry meterRegistry) {
+            super(chainIndexer, addressFilter, transferEventPublisher,
+                    blockProgressStore, walletAddressRepository, meterRegistry);
         }
 
         @Override
         public WorkerType getWorkerType() {
             return REGULAR;
-        }
-    }
-
-    private static class StubChainIndexer implements ChainIndexer {
-        @Override
-        public BlockResult indexBlock(long blockNumber) {
-            return null;
-        }
-
-        @Override
-        public long getLatestFinalizedBlockNumber() {
-            return 0;
-        }
-
-        @Override
-        public ChainId getChainId() {
-            return ETHEREUM;
-        }
-    }
-
-    private static class StubAddressFilter implements AddressFilter {
-        @Override
-        public boolean mightContain(String address, NetworkType networkType) {
-            return false;
-        }
-
-        @Override
-        public boolean contains(String address, NetworkType networkType) {
-            return false;
-        }
-
-        @Override
-        public void add(String address, NetworkType networkType) {
-        }
-
-        @Override
-        public void remove(String address, NetworkType networkType) {
-        }
-    }
-
-    private static class StubTransferEventPublisher implements TransferEventPublisher {
-        @Override
-        public void publish(TransferDetectedEvent event) {
-        }
-
-        @Override
-        public void publishAll(List<TransferDetectedEvent> events) {
-        }
-    }
-
-    private static class StubBlockProgressStore implements BlockProgressStore {
-        @Override
-        public OptionalLong getLastProcessedBlock(ChainId chainId) {
-            return OptionalLong.empty();
-        }
-
-        @Override
-        public void saveLastProcessedBlock(ChainId chainId, long blockNumber) {
-        }
-
-        @Override
-        public void addFailedBlock(ChainId chainId, long blockNumber) {
-        }
-
-        @Override
-        public Set<Long> getFailedBlocks(ChainId chainId) {
-            return Set.of();
-        }
-
-        @Override
-        public void removeFailedBlock(ChainId chainId, long blockNumber) {
-        }
-
-        @Override
-        public void saveCatchupRange(ChainId chainId, long fromBlock, long toBlock) {
-        }
-
-        @Override
-        public Map<Long, Long> getCatchupRanges(ChainId chainId) {
-            return Map.of();
-        }
-
-        @Override
-        public void removeCatchupRange(ChainId chainId, long fromBlock) {
-        }
-    }
-
-    private static class StubWalletAddressRepository implements WalletAddressRepository {
-        @Override
-        public WalletAddress save(WalletAddress walletAddress) {
-            return walletAddress;
-        }
-
-        @Override
-        public Optional<WalletAddress> findByAddressAndNetworkType(String address, NetworkType networkType) {
-            return Optional.empty();
-        }
-
-        @Override
-        public List<WalletAddress> findAllByNetworkType(NetworkType networkType) {
-            return List.of();
-        }
-
-        @Override
-        public boolean existsByAddressAndNetworkType(String address, NetworkType networkType) {
-            return false;
-        }
-
-        @Override
-        public void deleteByAddressAndNetworkType(String address, NetworkType networkType) {
         }
     }
 }
