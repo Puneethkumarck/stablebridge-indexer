@@ -120,7 +120,7 @@ public abstract class BaseWorker {
         }
     }
 
-    public List<TransferDetectedEvent> matchTransfers(BlockResult blockResult) {
+    protected List<TransferDetectedEvent> matchTransfers(BlockResult blockResult) {
         var networkType = getChainId().networkType();
 
         return blockResult.transfers().stream()
