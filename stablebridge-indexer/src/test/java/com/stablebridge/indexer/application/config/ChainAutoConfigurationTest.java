@@ -6,8 +6,8 @@ import com.stablebridge.indexer.application.properties.ConfirmationStrategy;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
 import com.stablebridge.indexer.application.properties.RpcProperties;
 import com.stablebridge.indexer.application.properties.TokenContractProperties;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory.EvmChainConfig;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory.TokenConfig;
+import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
+import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -124,7 +124,7 @@ class ChainAutoConfigurationTest {
                     .indexNativeTransfers(false)
                     .nativeDecimals(18)
                     .tokenContracts(List.of(
-                            TokenConfig.builder()
+                            EvmChainTokenConfig.builder()
                                     .address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
                                     .symbol("USDC")
                                     .decimals(6)
@@ -160,7 +160,7 @@ class ChainAutoConfigurationTest {
                     .indexNativeTransfers(false)
                     .nativeDecimals(18)
                     .tokenContracts(List.of(
-                            TokenConfig.builder()
+                            EvmChainTokenConfig.builder()
                                     .address("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
                                     .symbol("USDC")
                                     .decimals(6)
