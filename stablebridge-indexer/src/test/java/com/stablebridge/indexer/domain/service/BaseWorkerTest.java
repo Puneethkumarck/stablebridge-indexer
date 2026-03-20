@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
@@ -571,6 +572,9 @@ class BaseWorkerTest {
             given(addressFilter.mightContain(DEFAULT_TO_ADDRESS, EVM)).willReturn(true);
             given(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_TO_ADDRESS, EVM))
                     .willReturn(true);
+            lenient().when(addressFilter.mightContain(DEFAULT_FROM_ADDRESS, EVM)).thenReturn(true);
+            lenient().when(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_FROM_ADDRESS, EVM))
+                    .thenReturn(true);
 
             // when
             worker.processBlock(DEFAULT_BLOCK_NUMBER);
