@@ -76,25 +76,29 @@ public abstract class BaseWorker {
     public abstract WorkerType getWorkerType();
 
     public void start() {
-        state.set(RUNNING);
-        log.info("Worker started — chain={}, workerType={}", getChainId(), getWorkerType());
+        var previousState = state.getAndSet(RUNNING);
+        log.info("Worker state changed — from={}, to={}, chain={}, workerType={}",
+                previousState, RUNNING, getChainId(), getWorkerType());
     }
 
     public void stop() {
-        state.set(STOPPED);
-        log.info("Worker stopped — chain={}, workerType={}", getChainId(), getWorkerType());
+        var previousState = state.getAndSet(STOPPED);
+        log.info("Worker state changed — from={}, to={}, chain={}, workerType={}",
+                previousState, STOPPED, getChainId(), getWorkerType());
     }
 
     public void park() {
-        state.set(PARKED);
-        log.warn("Worker parked — chain={}, workerType={}", getChainId(), getWorkerType());
+        var previousState = state.getAndSet(PARKED);
+        log.warn("Worker state changed — from={}, to={}, chain={}, workerType={}",
+                previousState, PARKED, getChainId(), getWorkerType());
     }
 
     public boolean tryResume() {
         try {
             chainIndexer.getLatestFinalizedBlockNumber();
-            state.set(RUNNING);
-            log.info("Worker resumed from PARKED — chain={}, workerType={}", getChainId(), getWorkerType());
+            var previousState = state.getAndSet(RUNNING);
+            log.info("Worker state changed — from={}, to={}, chain={}, workerType={}",
+                    previousState, RUNNING, getChainId(), getWorkerType());
             return true;
         } catch (Exception e) {
             log.debug("Health probe failed, staying PARKED — chain={}, workerType={}, error={}",
@@ -105,6 +109,7 @@ public abstract class BaseWorker {
 
     public void processBlock(long blockNumber) {
         var traceId = UUID.randomUUID().toString();
+        var startTime = System.nanoTime();
         try {
             setMdcContext(blockNumber, traceId);
 
@@ -122,7 +127,10 @@ public abstract class BaseWorker {
             blockProgressStore.saveLastProcessedBlock(getChainId(), blockNumber);
             blocksProcessedCounter.increment();
 
-            log.debug("Block processed successfully — blockNumber={}", blockNumber);
+            var latencyMs = (System.nanoTime() - startTime) / 1_000_000;
+            MDC.put("latency_ms", String.valueOf(latencyMs));
+            log.info("Block processed — blockNumber={}, transfers={}, latency_ms={}",
+                    blockNumber, matchedEvents.size(), latencyMs);
         } catch (Exception e) {
             blocksFailedCounter.increment();
             throw e;
@@ -144,6 +152,10 @@ public abstract class BaseWorker {
                     && walletAddressRepository.existsByAddressAndNetworkType(
                             transfer.toAddress(), networkType)) {
                 events.add(toTransferDetectedEvent(transfer, INCOMING));
+                setTransferMdc(transfer, transfer.toAddress());
+                log.info("Transfer matched — direction=INCOMING, txHash={}, walletAddress={}, tokenSymbol={}",
+                        transfer.txHash(), transfer.toAddress(), transfer.tokenSymbol());
+                clearTransferMdc();
             }
 
             if (isTwoWayIndexingEnabled()
@@ -151,6 +163,10 @@ public abstract class BaseWorker {
                     && walletAddressRepository.existsByAddressAndNetworkType(
                             transfer.fromAddress(), networkType)) {
                 events.add(toTransferDetectedEvent(transfer, OUTGOING));
+                setTransferMdc(transfer, transfer.fromAddress());
+                log.info("Transfer matched — direction=OUTGOING, txHash={}, walletAddress={}, tokenSymbol={}",
+                        transfer.txHash(), transfer.fromAddress(), transfer.tokenSymbol());
+                clearTransferMdc();
             }
         }
 
@@ -180,10 +196,24 @@ public abstract class BaseWorker {
         MDC.put("traceId", traceId);
     }
 
+    private void setTransferMdc(Transfer transfer, String walletAddress) {
+        MDC.put("txHash", transfer.txHash());
+        MDC.put("walletAddress", walletAddress);
+        MDC.put("tokenSymbol", transfer.tokenSymbol());
+    }
+
+    private void clearTransferMdc() {
+        MDC.remove("txHash");
+        MDC.remove("walletAddress");
+        MDC.remove("tokenSymbol");
+    }
+
     private void clearMdcContext() {
         MDC.remove("chain");
         MDC.remove("blockNumber");
         MDC.remove("workerType");
         MDC.remove("traceId");
+        MDC.remove("latency_ms");
+        clearTransferMdc();
     }
 }
