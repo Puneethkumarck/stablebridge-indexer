@@ -168,3 +168,20 @@ indexer:
         - address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
           symbol: USDT
           decimals: 6
+
+    bitcoin_mainnet:
+      enabled: false
+      type: bitcoin
+      confirmation-strategy: confirmations
+      min-confirmations: 6
+      index-native-transfers: true
+      native-decimals: 8
+      start-block: 0
+      poll-interval: 60s
+      batch-size: 5
+      rpc:
+        urls:
+          - ${BITCOIN_RPC_URL:http://localhost:8332}
+        timeout: 30s
+        username: ${BITCOIN_RPC_USERNAME:bitcoin}
+        password: ${BITCOIN_RPC_PASSWORD:bitcoin}
