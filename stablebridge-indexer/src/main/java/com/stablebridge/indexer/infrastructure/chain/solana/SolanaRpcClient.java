@@ -20,12 +20,7 @@ public class SolanaRpcClient {
     private static final String CONTENT_TYPE = "application/json";
     private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
     private static final Map<String, String> FINALIZED_COMMITMENT = Map.of("commitment", "finalized");
-    private static final Map<String, Object> BLOCK_REQUEST_CONFIG = Map.of(
-            "encoding", "jsonParsed",
-            "maxSupportedTransactionVersion", 0,
-            "commitment", "finalized"
-    );
-    private static final Map<String, Object> TRANSACTION_REQUEST_CONFIG = Map.of(
+    private static final Map<String, Object> PARSED_REQUEST_CONFIG = Map.of(
             "encoding", "jsonParsed",
             "maxSupportedTransactionVersion", 0,
             "commitment", "finalized"
@@ -52,13 +47,13 @@ public class SolanaRpcClient {
     }
 
     public SolanaBlock getBlock(long slot) {
-        var request = JsonRpcRequest.of("getBlock", List.of(slot, BLOCK_REQUEST_CONFIG), nextId());
+        var request = JsonRpcRequest.of("getBlock", List.of(slot, PARSED_REQUEST_CONFIG), nextId());
         return sendSingleRequest(request, SolanaBlock.class);
     }
 
     public SolanaTransaction getTransaction(String signature) {
         var request = JsonRpcRequest.of(
-                "getTransaction", List.of(signature, TRANSACTION_REQUEST_CONFIG), nextId());
+                "getTransaction", List.of(signature, PARSED_REQUEST_CONFIG), nextId());
         return sendSingleRequest(request, SolanaTransaction.class);
     }
 

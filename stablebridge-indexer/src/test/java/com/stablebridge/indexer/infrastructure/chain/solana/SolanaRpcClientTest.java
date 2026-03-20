@@ -325,33 +325,47 @@ class SolanaRpcClientTest {
             var block = client.getBlock(201L);
 
             // then
-            var expectedPreTokenBalance = SolanaTokenBalance.builder()
-                    .accountIndex(1)
-                    .mint("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-                    .owner("receiver1")
-                    .uiTokenAmount(SolanaTokenBalance.SolanaTokenAmount.builder()
-                            .amount("1000000")
-                            .decimals(6)
-                            .uiAmountString("1.0")
+            var expected = SolanaTransaction.builder()
+                    .transaction(SolanaTransactionBody.builder()
+                            .message(SolanaTransactionMessage.builder()
+                                    .accountKeys(List.of("sender1", "receiver1",
+                                            "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"))
+                                    .instructions(List.of())
+                                    .build())
+                            .signatures(List.of("sig123"))
+                            .build())
+                    .meta(SolanaTransactionMeta.builder()
+                            .err(null)
+                            .fee(5000L)
+                            .preBalances(List.of(1000000L, 500000L, 0L))
+                            .postBalances(List.of(995000L, 505000L, 0L))
+                            .preTokenBalances(List.of(
+                                    SolanaTokenBalance.builder()
+                                            .accountIndex(1)
+                                            .mint("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+                                            .owner("receiver1")
+                                            .uiTokenAmount(SolanaTokenBalance.SolanaTokenAmount.builder()
+                                                    .amount("1000000")
+                                                    .decimals(6)
+                                                    .uiAmountString("1.0")
+                                                    .build())
+                                            .build()))
+                            .postTokenBalances(List.of(
+                                    SolanaTokenBalance.builder()
+                                            .accountIndex(1)
+                                            .mint("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+                                            .owner("receiver1")
+                                            .uiTokenAmount(SolanaTokenBalance.SolanaTokenAmount.builder()
+                                                    .amount("2000000")
+                                                    .decimals(6)
+                                                    .uiAmountString("2.0")
+                                                    .build())
+                                            .build()))
                             .build())
                     .build();
-            var expectedPostTokenBalance = SolanaTokenBalance.builder()
-                    .accountIndex(1)
-                    .mint("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
-                    .owner("receiver1")
-                    .uiTokenAmount(SolanaTokenBalance.SolanaTokenAmount.builder()
-                            .amount("2000000")
-                            .decimals(6)
-                            .uiAmountString("2.0")
-                            .build())
-                    .build();
-            var tx = block.transactions().getFirst();
-            assertThat(tx.meta().preTokenBalances())
+            assertThat(block.transactions().getFirst())
                     .usingRecursiveComparison()
-                    .isEqualTo(List.of(expectedPreTokenBalance));
-            assertThat(tx.meta().postTokenBalances())
-                    .usingRecursiveComparison()
-                    .isEqualTo(List.of(expectedPostTokenBalance));
+                    .isEqualTo(expected);
         }
 
         @Test
