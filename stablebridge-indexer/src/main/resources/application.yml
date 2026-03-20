@@ -147,3 +147,24 @@ indexer:
         - address: "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42"
           symbol: EURC
           decimals: 6
+
+    solana_mainnet:
+      enabled: false
+      type: solana
+      confirmation-strategy: finalized
+      index-native-transfers: false
+      native-decimals: 9
+      start-block: 0
+      poll-interval: 400ms
+      batch-size: 10
+      rpc:
+        urls:
+          - ${SOLANA_RPC_URL:https://api.mainnet-beta.solana.com}
+        timeout: 10s
+      token-contracts:
+        - address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+          symbol: USDC
+          decimals: 6
+        - address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+          symbol: USDT
+          decimals: 6
