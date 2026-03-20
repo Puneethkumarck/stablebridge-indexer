@@ -1,6 +1,6 @@
 package com.stablebridge.indexer.application.config;
 
-import com.stablebridge.indexer.application.properties.BloomProperties;
+import com.stablebridge.indexer.application.properties.IndexerProperties;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
 import com.stablebridge.indexer.infrastructure.bloom.RedisBloomAddressFilter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -16,13 +16,14 @@ public class RedisBloomAutoConfiguration {
     @Bean
     RedisBloomAddressFilter redisBloomAddressFilter(
             StringRedisTemplate stringRedisTemplate,
-            BloomProperties bloomProperties,
+            IndexerProperties indexerProperties,
             WalletAddressRepository walletAddressRepository,
             MeterRegistry meterRegistry) {
+        var bloom = indexerProperties.bloom();
         return new RedisBloomAddressFilter(
                 stringRedisTemplate,
-                bloomProperties.expectedInsertions(),
-                bloomProperties.errorRate(),
+                bloom.expectedInsertions(),
+                bloom.errorRate(),
                 walletAddressRepository,
                 meterRegistry
         );

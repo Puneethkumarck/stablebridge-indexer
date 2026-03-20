@@ -8,10 +8,10 @@ import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
-import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,12 +33,26 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>This class does not depend on application-layer configuration directly. The raw config
  * values ({@code expectedInsertions}, {@code errorRate}) are passed via constructor parameters,
  * with the application-layer {@code RedisBloomAutoConfiguration} bridging the gap.
+ *
+ * <p>Commands are executed via Lua scripts to ensure compatibility with Lettuce's response
+ * handling, since Lettuce's generic {@code execute()} uses {@code ByteArrayOutput} which
+ * does not support boolean/integer responses from Redis Bloom module commands.
  */
 @Slf4j
 @RequiredArgsConstructor
 public class RedisBloomAddressFilter implements AddressFilter {
 
     static final String KEY_PREFIX = "indexer:bloom:";
+
+    static final DefaultRedisScript<Long> BF_ADD_SCRIPT =
+            new DefaultRedisScript<>("return redis.call('BF.ADD', KEYS[1], ARGV[1])", Long.class);
+
+    static final DefaultRedisScript<Long> BF_EXISTS_SCRIPT =
+            new DefaultRedisScript<>("return redis.call('BF.EXISTS', KEYS[1], ARGV[1])", Long.class);
+
+    static final DefaultRedisScript<Long> BF_RESERVE_SCRIPT =
+            new DefaultRedisScript<>(
+                    "return redis.call('BF.RESERVE', KEYS[1], ARGV[1], ARGV[2])", Long.class);
 
     private final StringRedisTemplate redisTemplate;
     private final long expectedInsertions;
@@ -49,7 +63,7 @@ public class RedisBloomAddressFilter implements AddressFilter {
 
     @PostConstruct
     void initializeFilters() {
-        for (NetworkType networkType : NetworkType.values()) {
+        for (var networkType : NetworkType.values()) {
             initializeFilter(networkType);
             var size = bloomSizes.computeIfAbsent(networkType, nt -> new AtomicLong(0));
             Gauge.builder("indexer.bloom.size", size, AtomicLong::get)
@@ -62,16 +76,9 @@ public class RedisBloomAddressFilter implements AddressFilter {
 
     @Override
     public boolean mightContain(String address, NetworkType networkType) {
-        String key = bloomKey(networkType);
-        Boolean result = redisTemplate.execute((RedisCallback<Boolean>) connection -> {
-            Object rawResult = connection.commands().execute(
-                    "BF.EXISTS",
-                    key.getBytes(StandardCharsets.UTF_8),
-                    address.getBytes(StandardCharsets.UTF_8)
-            );
-            return parseBooleanReply(rawResult);
-        });
-        return Boolean.TRUE.equals(result);
+        var key = bloomKey(networkType);
+        var result = redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(key), address);
+        return result != null && result == 1L;
     }
 
     @Override
@@ -82,14 +89,7 @@ public class RedisBloomAddressFilter implements AddressFilter {
     @Override
     public void add(String address, NetworkType networkType) {
         var key = bloomKey(networkType);
-        redisTemplate.execute((RedisCallback<Boolean>) connection -> {
-            var rawResult = connection.commands().execute(
-                    "BF.ADD",
-                    key.getBytes(StandardCharsets.UTF_8),
-                    address.getBytes(StandardCharsets.UTF_8)
-            );
-            return parseBooleanReply(rawResult);
-        });
+        redisTemplate.execute(BF_ADD_SCRIPT, List.of(key), address);
         bloomSizes.computeIfAbsent(networkType, nt -> new AtomicLong(0)).incrementAndGet();
         log.debug("Added address to Redis bloom filter — networkType={}, address={}", networkType, address);
     }
@@ -101,16 +101,10 @@ public class RedisBloomAddressFilter implements AddressFilter {
     }
 
     private void initializeFilter(NetworkType networkType) {
-        String key = bloomKey(networkType);
+        var key = bloomKey(networkType);
         try {
-            redisTemplate.execute((RedisCallback<Object>) connection ->
-                    connection.commands().execute(
-                            "BF.RESERVE",
-                            key.getBytes(StandardCharsets.UTF_8),
-                            String.valueOf(errorRate).getBytes(StandardCharsets.UTF_8),
-                            String.valueOf(expectedInsertions).getBytes(StandardCharsets.UTF_8)
-                    )
-            );
+            redisTemplate.execute(BF_RESERVE_SCRIPT, List.of(key),
+                    String.valueOf(errorRate), String.valueOf(expectedInsertions));
             log.info("Reserved bloom filter — key={}, errorRate={}, expectedInsertions={}",
                     key, errorRate, expectedInsertions);
         } catch (Exception e) {
@@ -121,22 +115,5 @@ public class RedisBloomAddressFilter implements AddressFilter {
 
     private String bloomKey(NetworkType networkType) {
         return KEY_PREFIX + networkType.name();
-    }
-
-    private Boolean parseBooleanReply(Object rawResult) {
-        if (rawResult == null) {
-            return false;
-        }
-        if (rawResult instanceof Long longValue) {
-            return longValue == 1L;
-        }
-        if (rawResult instanceof byte[] bytes) {
-            if (bytes.length == 1) {
-                return bytes[0] == '1' || bytes[0] == 1;
-            }
-            String reply = new String(bytes, StandardCharsets.UTF_8);
-            return "1".equals(reply);
-        }
-        return "1".equals(rawResult.toString());
     }
 }

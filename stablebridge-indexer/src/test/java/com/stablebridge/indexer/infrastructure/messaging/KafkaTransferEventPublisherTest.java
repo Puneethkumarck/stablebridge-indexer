@@ -31,7 +31,7 @@ import static org.mockito.BDDMockito.then;
 class KafkaTransferEventPublisherTest {
 
     @Mock
-    private KafkaTemplate<String, TransferEvent> kafkaTemplate;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
     private TransferEventMapper transferEventMapper;
@@ -259,7 +259,7 @@ class KafkaTransferEventPublisherTest {
                 event.detectedAt());
 
         given(transferEventMapper.toTransferEvent(event)).willReturn(apiEvent);
-        var failedFuture = new CompletableFuture<SendResult<String, TransferEvent>>();
+        var failedFuture = new CompletableFuture<SendResult<String, Object>>();
         failedFuture.completeExceptionally(new RuntimeException("Kafka broker unavailable"));
         given(kafkaTemplate.send("transfer.events.ETHEREUM", DEFAULT_TO_ADDRESS, apiEvent))
                 .willReturn(failedFuture);

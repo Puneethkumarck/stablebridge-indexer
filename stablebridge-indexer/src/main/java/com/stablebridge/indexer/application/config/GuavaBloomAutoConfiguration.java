@@ -1,6 +1,6 @@
 package com.stablebridge.indexer.application.config;
 
-import com.stablebridge.indexer.application.properties.BloomProperties;
+import com.stablebridge.indexer.application.properties.IndexerProperties;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
 import com.stablebridge.indexer.infrastructure.bloom.GuavaBloomAddressFilter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -14,12 +14,13 @@ public class GuavaBloomAutoConfiguration {
 
     @Bean
     GuavaBloomAddressFilter guavaBloomAddressFilter(
-            BloomProperties bloomProperties,
+            IndexerProperties indexerProperties,
             WalletAddressRepository walletAddressRepository,
             MeterRegistry meterRegistry) {
+        var bloom = indexerProperties.bloom();
         return new GuavaBloomAddressFilter(
-                bloomProperties.expectedInsertions(),
-                bloomProperties.errorRate(),
+                bloom.expectedInsertions(),
+                bloom.errorRate(),
                 walletAddressRepository,
                 meterRegistry
         );
