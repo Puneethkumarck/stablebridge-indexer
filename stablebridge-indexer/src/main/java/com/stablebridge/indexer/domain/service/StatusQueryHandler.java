@@ -8,13 +8,13 @@ import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.model.WorkerState;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
 
@@ -25,6 +25,7 @@ import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
  * Workers are not yet implemented (Phase 4), so worker state defaults to {@link WorkerState#STOPPED}
  * and finalized block information is not yet available.
  */
+@Service
 @RequiredArgsConstructor
 public class StatusQueryHandler {
 
@@ -50,7 +51,7 @@ public class StatusQueryHandler {
      * @return the chain status, or empty if the chain is not configured
      */
     public Optional<ChainStatus> getChainStatus(String chainName) {
-        ChainConfiguration config = chainConfigurations.get(chainName);
+        var config = chainConfigurations.get(chainName);
         if (config == null) {
             return Optional.empty();
         }
@@ -67,7 +68,7 @@ public class StatusQueryHandler {
     }
 
     private ChainStatus buildChainStatus(String chainName, ChainConfiguration config) {
-        Long lastProcessedBlock = resolveLastProcessedBlock(chainName, config.networkType());
+        var lastProcessedBlock = resolveLastProcessedBlock(chainName, config.networkType());
 
         return ChainStatus.builder()
                 .chainName(chainName)
@@ -94,7 +95,7 @@ public class StatusQueryHandler {
     }
 
     private Optional<Long> getLastProcessedBlockForChain(ChainId chainId) {
-        OptionalLong progress = blockProgressStore.getLastProcessedBlock(chainId);
+        var progress = blockProgressStore.getLastProcessedBlock(chainId);
         return progress.isPresent() ? Optional.of(progress.getAsLong()) : Optional.empty();
     }
 }

@@ -3,8 +3,6 @@ package com.stablebridge.indexer.application.controller;
 import com.stablebridge.indexer.api.BloomStatusResponse;
 import com.stablebridge.indexer.api.ErrorResponse;
 import com.stablebridge.indexer.api.IndexerStatusResponse;
-import com.stablebridge.indexer.domain.model.BloomStatus;
-import com.stablebridge.indexer.domain.model.ChainStatus;
 import com.stablebridge.indexer.domain.service.StatusQueryHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -40,7 +37,7 @@ public class StatusController {
      */
     @GetMapping
     public ResponseEntity<List<IndexerStatusResponse>> getAllChainStatuses() {
-        List<ChainStatus> statuses = statusQueryHandler.getAllChainStatuses();
+        var statuses = statusQueryHandler.getAllChainStatuses();
         return ResponseEntity.ok(mapper.toResponseList(statuses));
     }
 
@@ -52,9 +49,9 @@ public class StatusController {
      */
     @GetMapping("/{chainName}")
     public ResponseEntity<?> getChainStatus(@PathVariable String chainName) {
-        Optional<ChainStatus> status = statusQueryHandler.getChainStatus(chainName);
+        var status = statusQueryHandler.getChainStatus(chainName);
         if (status.isEmpty()) {
-            ErrorResponse error = new ErrorResponse(
+            var error = new ErrorResponse(
                     NOT_FOUND.value(),
                     NOT_FOUND.getReasonPhrase(),
                     "Chain not configured: " + chainName,
@@ -72,7 +69,7 @@ public class StatusController {
      */
     @GetMapping("/bloom")
     public ResponseEntity<BloomStatusResponse> getBloomStatus() {
-        BloomStatus bloomStatus = statusQueryHandler.getBloomStatus();
+        var bloomStatus = statusQueryHandler.getBloomStatus();
         return ResponseEntity.ok(mapper.toBloomResponse(bloomStatus));
     }
 }

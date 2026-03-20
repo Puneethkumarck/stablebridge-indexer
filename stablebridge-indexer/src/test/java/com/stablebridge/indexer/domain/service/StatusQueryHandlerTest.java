@@ -16,7 +16,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.stablebridge.indexer.domain.model.NetworkType.BITCOIN;
@@ -80,9 +79,9 @@ class StatusQueryHandlerTest {
             given(blockProgressStore.getLastProcessedBlock(ChainId.BASE))
                     .willReturn(OptionalLong.of(BASE_LAST_BLOCK));
 
-            List<ChainStatus> actual = queryHandler.getAllChainStatuses();
+            var actual = queryHandler.getAllChainStatuses();
 
-            List<ChainStatus> expected = List.of(
+            var expected = List.of(
                     ChainStatus.builder()
                             .chainName(ETHEREUM_CHAIN)
                             .networkType(EVM)
@@ -117,9 +116,9 @@ class StatusQueryHandlerTest {
             given(blockProgressStore.getLastProcessedBlock(ChainId.BASE))
                     .willReturn(OptionalLong.empty());
 
-            List<ChainStatus> actual = queryHandler.getAllChainStatuses();
+            var actual = queryHandler.getAllChainStatuses();
 
-            List<ChainStatus> expected = List.of(
+            var expected = List.of(
                     ChainStatus.builder()
                             .chainName(ETHEREUM_CHAIN)
                             .networkType(EVM)
@@ -155,9 +154,9 @@ class StatusQueryHandlerTest {
             given(blockProgressStore.getLastProcessedBlock(ChainId.ETHEREUM))
                     .willReturn(OptionalLong.of(ETHEREUM_LAST_BLOCK));
 
-            Optional<ChainStatus> actual = queryHandler.getChainStatus(ETHEREUM_CHAIN);
+            var actual = queryHandler.getChainStatus(ETHEREUM_CHAIN);
 
-            ChainStatus expected = ChainStatus.builder()
+            var expected = ChainStatus.builder()
                     .chainName(ETHEREUM_CHAIN)
                     .networkType(EVM)
                     .workerState(STOPPED)
@@ -178,7 +177,7 @@ class StatusQueryHandlerTest {
         @Test
         @DisplayName("returns empty for unknown chain")
         void returnsEmptyForUnknownChain() {
-            Optional<ChainStatus> actual = queryHandler.getChainStatus("unknown_chain");
+            var actual = queryHandler.getChainStatus("unknown_chain");
 
             assertThat(actual).isEmpty();
         }
@@ -191,9 +190,9 @@ class StatusQueryHandlerTest {
         @Test
         @DisplayName("returns bloom filter configuration status")
         void returnsBloomStatus() {
-            BloomStatus actual = queryHandler.getBloomStatus();
+            var actual = queryHandler.getBloomStatus();
 
-            BloomStatus expected = BloomStatus.builder()
+            var expected = BloomStatus.builder()
                     .backend("redis")
                     .expectedInsertions(1_000_000L)
                     .errorRate(0.001)

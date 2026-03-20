@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
 import java.util.Optional;
@@ -56,7 +55,7 @@ class StatusControllerTest {
         @Test
         @DisplayName("returns 200 with list of chain statuses")
         void returnsAllChainStatuses() throws Exception {
-            List<ChainStatus> domainStatuses = List.of(
+            var domainStatuses = List.of(
                     ChainStatus.builder()
                             .chainName(ETHEREUM_CHAIN)
                             .networkType(EVM)
@@ -68,22 +67,21 @@ class StatusControllerTest {
                             .build()
             );
 
-            IndexerStatusResponse response =
-                    new IndexerStatusResponse(
-                            ETHEREUM_CHAIN, "EVM", "STOPPED",
-                            ETHEREUM_LAST_BLOCK, null, null, true);
+            var response = new IndexerStatusResponse(
+                    ETHEREUM_CHAIN, "EVM", "STOPPED",
+                    ETHEREUM_LAST_BLOCK, null, null, true);
 
             given(statusQueryHandler.getAllChainStatuses()).willReturn(domainStatuses);
             given(mapper.toResponseList(domainStatuses)).willReturn(List.of(response));
 
-            MvcResult result = mockMvc.perform(get("/api/v1/status"))
+            var result = mockMvc.perform(get("/api/v1/status"))
                     .andExpect(status().isOk())
                     .andReturn();
 
-            List<IndexerStatusResponse> actual = objectMapper.readValue(
+            var actual = objectMapper.readValue(
                     result.getResponse().getContentAsString(),
-                    new TypeReference<>() {});
-            List<IndexerStatusResponse> expected = List.of(
+                    new TypeReference<List<IndexerStatusResponse>>() {});
+            var expected = List.of(
                     new IndexerStatusResponse(
                             ETHEREUM_CHAIN, "EVM", "STOPPED",
                             ETHEREUM_LAST_BLOCK, null, null, true));
@@ -103,7 +101,7 @@ class StatusControllerTest {
         @Test
         @DisplayName("returns 200 with chain status when chain is configured")
         void returnsChainStatusWhenConfigured() throws Exception {
-            ChainStatus domainStatus = ChainStatus.builder()
+            var domainStatus = ChainStatus.builder()
                     .chainName(ETHEREUM_CHAIN)
                     .networkType(EVM)
                     .workerState(STOPPED)
@@ -113,23 +111,22 @@ class StatusControllerTest {
                     .enabled(true)
                     .build();
 
-            IndexerStatusResponse response =
-                    new IndexerStatusResponse(
-                            ETHEREUM_CHAIN, "EVM", "STOPPED",
-                            ETHEREUM_LAST_BLOCK, null, null, true);
+            var response = new IndexerStatusResponse(
+                    ETHEREUM_CHAIN, "EVM", "STOPPED",
+                    ETHEREUM_LAST_BLOCK, null, null, true);
 
             given(statusQueryHandler.getChainStatus(ETHEREUM_CHAIN))
                     .willReturn(Optional.of(domainStatus));
             given(mapper.toResponse(domainStatus)).willReturn(response);
 
-            MvcResult result = mockMvc.perform(get("/api/v1/status/{chainName}", ETHEREUM_CHAIN))
+            var result = mockMvc.perform(get("/api/v1/status/{chainName}", ETHEREUM_CHAIN))
                     .andExpect(status().isOk())
                     .andReturn();
 
-            IndexerStatusResponse actual = objectMapper.readValue(
+            var actual = objectMapper.readValue(
                     result.getResponse().getContentAsString(),
                     IndexerStatusResponse.class);
-            IndexerStatusResponse expected = new IndexerStatusResponse(
+            var expected = new IndexerStatusResponse(
                     ETHEREUM_CHAIN, "EVM", "STOPPED",
                     ETHEREUM_LAST_BLOCK, null, null, true);
             assertThat(actual)
@@ -143,19 +140,19 @@ class StatusControllerTest {
         @Test
         @DisplayName("returns 404 when chain is not configured")
         void returnsNotFoundWhenChainNotConfigured() throws Exception {
-            String unknownChain = "unknown_chain";
+            var unknownChain = "unknown_chain";
 
             given(statusQueryHandler.getChainStatus(unknownChain))
                     .willReturn(Optional.empty());
 
-            MvcResult result = mockMvc.perform(get("/api/v1/status/{chainName}", unknownChain))
+            var result = mockMvc.perform(get("/api/v1/status/{chainName}", unknownChain))
                     .andExpect(status().isNotFound())
                     .andReturn();
 
-            ErrorResponse actual = objectMapper.readValue(
+            var actual = objectMapper.readValue(
                     result.getResponse().getContentAsString(),
                     ErrorResponse.class);
-            ErrorResponse expected = new ErrorResponse(
+            var expected = new ErrorResponse(
                     404, "Not Found",
                     "Chain not configured: " + unknownChain, null);
             assertThat(actual)
@@ -174,29 +171,28 @@ class StatusControllerTest {
         @Test
         @DisplayName("returns 200 with bloom filter status")
         void returnsBloomStatus() throws Exception {
-            BloomStatus domainBloomStatus = BloomStatus.builder()
+            var domainBloomStatus = BloomStatus.builder()
                     .backend("redis")
                     .expectedInsertions(1_000_000L)
                     .errorRate(0.001)
                     .networkTypes(List.of(EVM, SOLANA, BITCOIN))
                     .build();
 
-            BloomStatusResponse response =
-                    new BloomStatusResponse(
-                            "redis", 1_000_000L, 0.001,
-                            List.of("EVM", "SOLANA", "BITCOIN"));
+            var response = new BloomStatusResponse(
+                    "redis", 1_000_000L, 0.001,
+                    List.of("EVM", "SOLANA", "BITCOIN"));
 
             given(statusQueryHandler.getBloomStatus()).willReturn(domainBloomStatus);
             given(mapper.toBloomResponse(domainBloomStatus)).willReturn(response);
 
-            MvcResult result = mockMvc.perform(get("/api/v1/status/bloom"))
+            var result = mockMvc.perform(get("/api/v1/status/bloom"))
                     .andExpect(status().isOk())
                     .andReturn();
 
-            BloomStatusResponse actual = objectMapper.readValue(
+            var actual = objectMapper.readValue(
                     result.getResponse().getContentAsString(),
                     BloomStatusResponse.class);
-            BloomStatusResponse expected = new BloomStatusResponse(
+            var expected = new BloomStatusResponse(
                     "redis", 1_000_000L, 0.001,
                     List.of("EVM", "SOLANA", "BITCOIN"));
             assertThat(actual)
