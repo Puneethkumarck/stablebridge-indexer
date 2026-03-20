@@ -18,6 +18,9 @@ dependencies {
     // MockMvc / @WebMvcTest for controller unit tests
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 
+    // WireMock for infrastructure adapter unit tests
+    testImplementation("org.wiremock:wiremock-standalone:${project.property("wiremockVersion")}")
+
     // Test fixtures need access to API module DTOs
     testFixturesImplementation(project(":stablebridge-indexer-api"))
 }
