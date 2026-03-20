@@ -34,7 +34,20 @@ afterEvaluate {
             tags = setOf("latest")
         }
         container {
+            ports = listOf("8080", "8081")
+            jvmFlags = listOf(
+                "-XX:+UseZGC",
+                "-XX:+ZGenerational",
+                "-XX:MaxRAMPercentage=75.0",
+                "-XX:+ExitOnOutOfMemoryError",
+                "-Djava.security.egd=file:/dev/./urandom"
+            )
             creationTime.set("USE_CURRENT_TIMESTAMP")
+            setFormat("OCI")
+            labels.set(mapOf(
+                "org.opencontainers.image.source" to "https://github.com/stablebridge/indexer",
+                "org.opencontainers.image.description" to "StableBridge Multichain Indexer"
+            ))
         }
     }
 }
