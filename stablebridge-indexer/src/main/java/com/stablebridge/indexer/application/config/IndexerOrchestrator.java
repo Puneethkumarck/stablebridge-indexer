@@ -71,13 +71,18 @@ public class IndexerOrchestrator implements SmartLifecycle {
 
     @Override
     public void start() {
+        if (!running.compareAndSet(false, true)) {
+            log.warn("IndexerOrchestrator already running — ignoring duplicate start()");
+            return;
+        }
+
         initializeBloomFilter();
 
+        workers.clear();
         executor = Executors.newVirtualThreadPerTaskExecutor();
 
         chainIndexers.forEach(this::startWorkersForChain);
 
-        running.set(true);
         log.info("IndexerOrchestrator started — {} chain(s), {} worker(s)",
                 chainIndexers.size(), workers.size());
     }
@@ -149,6 +154,7 @@ public class IndexerOrchestrator implements SmartLifecycle {
                 chainIndexer, addressFilter, transferEventPublisher,
                 blockProgressStore, walletAddressRepository, meterRegistry,
                 CATCHUP_CHUNK_SIZE);
+        catchupWorker.setChunkExecutor(executor);
 
         var rescanWorker = new RescanWorker(
                 chainIndexer, addressFilter, transferEventPublisher,
@@ -190,6 +196,9 @@ public class IndexerOrchestrator implements SmartLifecycle {
         while (worker.getState() == RUNNING) {
             try {
                 task.run();
+                if (worker.getState() != RUNNING) {
+                    break;
+                }
                 Thread.sleep(interval);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -207,6 +216,9 @@ public class IndexerOrchestrator implements SmartLifecycle {
         while (worker.getState() == PARKED) {
             try {
                 Thread.sleep(HEALTH_PROBE_INTERVAL);
+                if (worker.getState() != PARKED) {
+                    break;
+                }
                 worker.tryResume();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

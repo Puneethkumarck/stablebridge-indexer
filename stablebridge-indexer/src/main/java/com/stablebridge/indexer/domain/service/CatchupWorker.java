@@ -10,6 +10,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.LongStream;
@@ -20,6 +21,7 @@ import static com.stablebridge.indexer.domain.model.WorkerType.CATCHUP;
 public class CatchupWorker extends BaseWorker {
 
     private final int chunkSize;
+    private volatile ExecutorService chunkExecutor;
 
     public CatchupWorker(
             ChainIndexer chainIndexer,
@@ -32,6 +34,10 @@ public class CatchupWorker extends BaseWorker {
         super(chainIndexer, addressFilter, transferEventPublisher,
                 blockProgressStore, walletAddressRepository, meterRegistry);
         this.chunkSize = chunkSize;
+    }
+
+    public void setChunkExecutor(ExecutorService chunkExecutor) {
+        this.chunkExecutor = chunkExecutor;
     }
 
     @Override
@@ -66,11 +72,15 @@ public class CatchupWorker extends BaseWorker {
                 .boxed()
                 .toList();
 
-        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        var exec = chunkExecutor != null
+                ? chunkExecutor
+                : Executors.newVirtualThreadPerTaskExecutor();
+
+        try {
             var futures = chunkStarts.stream()
                     .map(chunkStart -> {
                         var chunkEnd = Math.min(chunkStart + chunkSize - 1, toBlock);
-                        return executor.submit(() -> processChunk(chunkStart, chunkEnd));
+                        return exec.submit(() -> processChunk(chunkStart, chunkEnd));
                     })
                     .toList();
 
@@ -84,6 +94,10 @@ public class CatchupWorker extends BaseWorker {
                 } catch (ExecutionException e) {
                     log.error("Catchup chunk failed — chain={}", getChainId(), e);
                 }
+            }
+        } finally {
+            if (chunkExecutor == null) {
+                exec.close();
             }
         }
     }

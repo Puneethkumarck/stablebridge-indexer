@@ -36,12 +36,19 @@ public class IndexerHealthIndicator implements HealthIndicator {
         }
 
         var chainDetails = buildChainDetails(workers);
+
+        if (!orchestrator.isRunning()) {
+            return Health.down()
+                    .withDetail("chains", chainDetails)
+                    .build();
+        }
+
         var hasStoppedWorker = workers.stream()
                 .anyMatch(w -> w.getState() == STOPPED);
         var hasParkedWorker = workers.stream()
                 .anyMatch(w -> w.getState() == PARKED);
 
-        if (hasStoppedWorker && orchestrator.isRunning()) {
+        if (hasStoppedWorker) {
             return Health.down()
                     .withDetail("chains", chainDetails)
                     .build();

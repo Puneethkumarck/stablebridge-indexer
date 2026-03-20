@@ -35,7 +35,7 @@ import static com.stablebridge.indexer.testutil.WalletAddressFixtures.aWalletAdd
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.BDDMockito.willReturn;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("IndexerOrchestrator")
@@ -63,10 +63,10 @@ class IndexerOrchestratorTest {
 
     @BeforeEach
     void setUp() {
-        lenient().when(chainIndexer.getChainId()).thenReturn(ETHEREUM);
-        lenient().when(chainIndexer.getLatestFinalizedBlockNumber()).thenReturn(-1L);
-        lenient().when(blockProgressStore.getCatchupRanges(ETHEREUM)).thenReturn(Map.of());
-        lenient().when(blockProgressStore.getFailedBlocks(ETHEREUM)).thenReturn(Set.of());
+        willReturn(ETHEREUM).given(chainIndexer).getChainId();
+        willReturn(-1L).given(chainIndexer).getLatestFinalizedBlockNumber();
+        willReturn(Map.of()).given(blockProgressStore).getCatchupRanges(ETHEREUM);
+        willReturn(Set.of()).given(blockProgressStore).getFailedBlocks(ETHEREUM);
     }
 
     @AfterEach
