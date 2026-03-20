@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.stablebridge.indexer.domain.model.BlockResult;
@@ -71,9 +70,8 @@ class EvmChainIndexerE2eTest {
 
     @BeforeEach
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
-        var objectMapper = new ObjectMapper();
         var rpcClient = new EvmRpcClient(
-                wmRuntimeInfo.getHttpBaseUrl(), BATCH_SIZE, false, TIMEOUT, objectMapper);
+                wmRuntimeInfo.getHttpBaseUrl(), BATCH_SIZE, false, TIMEOUT);
         var resilientClient = new ResilientEvmRpcClient(
                 rpcClient, "test_chain", 1, 100, 100, new SimpleMeterRegistry());
 

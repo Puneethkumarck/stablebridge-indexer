@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.application.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stablebridge.indexer.application.properties.ChainProperties;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
 import com.stablebridge.indexer.application.properties.TokenContractProperties;
@@ -25,12 +24,11 @@ class ChainAutoConfiguration {
 
     @Bean
     List<ChainIndexer> chainIndexers(IndexerProperties indexerProperties,
-                                      ObjectMapper objectMapper,
                                       MeterRegistry meterRegistry) {
         var indexers = indexerProperties.chains().entrySet().stream()
                 .filter(entry -> entry.getValue().enabled())
                 .filter(entry -> EVM_CHAIN_TYPE.equals(entry.getValue().type()))
-                .map(entry -> createEvmChainIndexer(entry.getKey(), entry.getValue(), objectMapper, meterRegistry))
+                .map(entry -> createEvmChainIndexer(entry.getKey(), entry.getValue(), meterRegistry))
                 .toList();
 
         log.info("Auto-configured {} EVM chain indexers", indexers.size());
@@ -39,10 +37,9 @@ class ChainAutoConfiguration {
 
     private static ChainIndexer createEvmChainIndexer(String networkId,
                                                        ChainProperties chainProperties,
-                                                       ObjectMapper objectMapper,
                                                        MeterRegistry meterRegistry) {
         var config = toEvmChainConfig(networkId, chainProperties);
-        return EvmChainIndexerFactory.create(config, objectMapper, meterRegistry);
+        return EvmChainIndexerFactory.create(config, meterRegistry);
     }
 
     static EvmChainConfig toEvmChainConfig(String networkId,

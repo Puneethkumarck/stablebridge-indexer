@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,12 +29,11 @@ class EvmRpcClientTest {
 
     private EvmRpcClient client;
     private String wireMockUrl;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp(WireMockRuntimeInfo wmRuntimeInfo) {
         wireMockUrl = wmRuntimeInfo.getHttpBaseUrl();
-        client = new EvmRpcClient(wireMockUrl, BATCH_SIZE, true, TIMEOUT, objectMapper);
+        client = new EvmRpcClient(wireMockUrl, BATCH_SIZE, true, TIMEOUT);
     }
 
     @Nested
@@ -380,7 +378,7 @@ class EvmRpcClientTest {
         void sendsMultipleBatchRequests() {
             // given
             var smallBatchClient = new EvmRpcClient(
-                    wireMockUrl, 2, false, TIMEOUT, objectMapper);
+                    wireMockUrl, 2, false, TIMEOUT);
 
             stubFor(post(urlEqualTo("/"))
                     .inScenario("batch-split")
@@ -577,7 +575,7 @@ class EvmRpcClientTest {
         void returnsTrueWhenEnabled() {
             // given
             var clientWithBlockReceipts = new EvmRpcClient(
-                    wireMockUrl, BATCH_SIZE, true, TIMEOUT, objectMapper);
+                    wireMockUrl, BATCH_SIZE, true, TIMEOUT);
 
             // when
             var result = clientWithBlockReceipts.supportsBlockReceipts();
@@ -591,7 +589,7 @@ class EvmRpcClientTest {
         void returnsFalseWhenDisabled() {
             // given
             var clientWithoutBlockReceipts = new EvmRpcClient(
-                    wireMockUrl, BATCH_SIZE, false, TIMEOUT, objectMapper);
+                    wireMockUrl, BATCH_SIZE, false, TIMEOUT);
 
             // when
             var result = clientWithoutBlockReceipts.supportsBlockReceipts();

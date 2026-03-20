@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.port.ChainIndexer;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -24,16 +23,14 @@ public class EvmChainIndexerFactory {
             "bsc_mainnet", ChainId.BSC
     );
 
-    public static ChainIndexer create(EvmChainConfig config, ObjectMapper objectMapper,
-                                      MeterRegistry meterRegistry) {
+    public static ChainIndexer create(EvmChainConfig config, MeterRegistry meterRegistry) {
         var chainId = resolveChainId(config.networkId());
 
         var rpcClient = new EvmRpcClient(
                 config.rpcUrl(),
                 config.rpcBatchSize(),
                 config.useBlockReceipts(),
-                config.rpcTimeout(),
-                objectMapper
+                config.rpcTimeout()
         );
 
         var resilientClient = new ResilientEvmRpcClient(
