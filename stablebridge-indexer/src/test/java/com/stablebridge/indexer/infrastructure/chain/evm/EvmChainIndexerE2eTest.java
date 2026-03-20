@@ -36,9 +36,9 @@ class EvmChainIndexerE2eTest {
     private static final long BLOCK_NUMBER = 19_500_032L;
     private static final String BLOCK_NUMBER_HEX = "0x1298c00";
     private static final String BLOCK_HASH =
-            "0xblockhash1234567890abcdef1234567890abcdef1234567890abcdef12345678";
+            "0xb10c4a541234567890abcdef1234567890abcdef1234567890abcdef12345678";
     private static final String PARENT_HASH =
-            "0xparenthash234567890abcdef1234567890abcdef1234567890abcdef12345678";
+            "0xpa4e274a5234567890abcdef1234567890abcdef1234567890abcdef12345678";
     private static final String BLOCK_TIMESTAMP_HEX = "0x65b3e8c0";
     private static final Instant BLOCK_TIMESTAMP = HexUtils.hexToInstant(BLOCK_TIMESTAMP_HEX);
 
@@ -58,12 +58,12 @@ class EvmChainIndexerE2eTest {
             "0x00000000000000000000000000000000000000000000000000000000000f4240";
     private static final String USDC_RAW_AMOUNT = "1000000";
 
-    private static final String TX_HASH_USDC = "0xtx_usdc_abc123def456789012345678901234567890abcdef1234567890ab";
-    private static final String TX_HASH_UNKNOWN = "0xtx_unknown_def456789012345678901234567890abcdef1234567890abcd";
+    private static final String TX_HASH_USDC = "0xabc123def456789012345678901234567890abcdef1234567890abcdef123456";
+    private static final String TX_HASH_UNKNOWN = "0xdef456789012345678901234567890abcdef1234567890abcdef1234567890ab";
 
-    private static final String ETH_SENDER = "0xethsender890abcdef1234567890abcdef12345678";
-    private static final String ETH_RECEIVER = "0xethreceiver0abcdef1234567890abcdef12345678";
-    private static final String TX_HASH_ETH = "0xtx_eth_789012345678901234567890abcdef1234567890abcdef12345678";
+    private static final String ETH_SENDER = "0xe74534de890abcdef1234567890abcdef12345678";
+    private static final String ETH_RECEIVER = "0xe74ece14e0abcdef1234567890abcdef12345678";
+    private static final String TX_HASH_ETH = "0xe74789012345678901234567890abcdef1234567890abcdef1234567890abcd";
 
     private EvmChainIndexer indexer;
     private EvmChainIndexer indexerWithNativeTransfers;
