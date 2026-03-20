@@ -15,6 +15,9 @@ dependencies {
     // Bloom filter (Guava fallback for local dev without RedisBloom)
     implementation("com.google.guava:guava:33.4.8-jre")
 
+    // MockMvc / @WebMvcTest for controller unit tests
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+
     // Test fixtures need access to API module DTOs
     testFixturesImplementation(project(":stablebridge-indexer-api"))
 }
