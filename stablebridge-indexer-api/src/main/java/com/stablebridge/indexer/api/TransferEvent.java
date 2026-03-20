@@ -1,8 +1,11 @@
 package com.stablebridge.indexer.api;
 
+import lombok.Builder;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 
+@Builder
 public record TransferEvent(
         String txHash,
         String fromAddress,

@@ -5,6 +5,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -16,6 +17,7 @@ import java.time.Instant;
 import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Slf4j
+@RequiredArgsConstructor
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     static final String API_KEY_HEADER = "X-API-Key";
@@ -24,11 +26,6 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
 
     private final String expectedApiKey;
     private final ObjectMapper objectMapper;
-
-    public ApiKeyAuthFilter(String expectedApiKey, ObjectMapper objectMapper) {
-        this.expectedApiKey = expectedApiKey;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

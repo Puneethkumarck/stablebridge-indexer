@@ -7,14 +7,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Auto-configuration for the in-memory Guava-based bloom filter.
- *
- * <p>Activated when {@code indexer.bloom.backend=memory}. This bridges the application
- * configuration layer ({@link BloomProperties}) with the infrastructure adapter
- * ({@link GuavaBloomAddressFilter}), keeping the infrastructure layer free of
- * application-layer dependencies (hexagonal architecture).
- */
 @Configuration
 @ConditionalOnProperty(name = "indexer.bloom.backend", havingValue = "memory")
 public class GuavaBloomAutoConfiguration {

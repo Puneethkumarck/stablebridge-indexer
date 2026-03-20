@@ -1,5 +1,6 @@
 package com.stablebridge.indexer.application.controller;
 
+import com.stablebridge.indexer.api.NetworkType;
 import com.stablebridge.indexer.api.WalletAddressRequest;
 import com.stablebridge.indexer.api.WalletAddressResponse;
 import com.stablebridge.indexer.application.config.SecurityAutoConfiguration;
@@ -65,12 +66,12 @@ class WalletControllerTest {
         void returnsCreatedWhenWalletAdded() throws Exception {
             var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
-                    com.stablebridge.indexer.api.NetworkType.EVM,
+                    NetworkType.EVM,
                     DEFAULT_LABEL);
             var savedWallet = aWalletAddress().build();
             var expectedResponse = aWalletAddressResponse();
 
-            given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
+            given(mapper.toDomain(NetworkType.EVM))
                     .willReturn(EVM);
             given(walletCommandHandler.addWallet(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL))
                     .willReturn(savedWallet);
@@ -94,7 +95,7 @@ class WalletControllerTest {
         void returnsUnauthorizedWithoutApiKey() throws Exception {
             var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
-                    com.stablebridge.indexer.api.NetworkType.EVM,
+                    NetworkType.EVM,
                     DEFAULT_LABEL);
 
             mockMvc.perform(post("/api/v1/wallets")
@@ -108,7 +109,7 @@ class WalletControllerTest {
         void returnsBadRequestWhenAddressBlank() throws Exception {
             var request = new WalletAddressRequest(
                     "",
-                    com.stablebridge.indexer.api.NetworkType.EVM,
+                    NetworkType.EVM,
                     DEFAULT_LABEL);
 
             mockMvc.perform(post("/api/v1/wallets")
@@ -142,14 +143,14 @@ class WalletControllerTest {
         void returnsCreatedWhenBatchAdded() throws Exception {
             var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
-                    com.stablebridge.indexer.api.NetworkType.EVM,
+                    NetworkType.EVM,
                     DEFAULT_LABEL);
             var savedWallet = aWalletAddress().build();
             var expectedResponse = aWalletAddressResponse();
             var expectedTuples = List.of(
                     new WalletAddressTuple(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL));
 
-            given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
+            given(mapper.toDomain(NetworkType.EVM))
                     .willReturn(EVM);
             given(walletCommandHandler.addWalletsBatch(expectedTuples))
                     .willReturn(List.of(savedWallet));
@@ -174,7 +175,7 @@ class WalletControllerTest {
         void returnsUnauthorizedWithoutApiKey() throws Exception {
             var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
-                    com.stablebridge.indexer.api.NetworkType.EVM,
+                    NetworkType.EVM,
                     DEFAULT_LABEL);
 
             mockMvc.perform(post("/api/v1/wallets/batch")
@@ -194,7 +195,7 @@ class WalletControllerTest {
             var wallet = aWalletAddress().build();
             var expectedResponse = aWalletAddressResponse();
 
-            given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
+            given(mapper.toDomain(NetworkType.EVM))
                     .willReturn(EVM);
             given(walletCommandHandler.listWallets(EVM))
                     .willReturn(List.of(wallet));
@@ -237,7 +238,7 @@ class WalletControllerTest {
         @Test
         @DisplayName("returns 204 No Content when wallet is removed with valid API key")
         void returnsNoContentWhenWalletRemoved() throws Exception {
-            given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
+            given(mapper.toDomain(NetworkType.EVM))
                     .willReturn(EVM);
 
             mockMvc.perform(delete("/api/v1/wallets/{address}", DEFAULT_ADDRESS)

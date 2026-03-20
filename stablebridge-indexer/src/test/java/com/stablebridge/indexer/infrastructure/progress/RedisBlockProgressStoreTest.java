@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.infrastructure.progress;
 
-import com.stablebridge.indexer.domain.model.ChainId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,6 +14,13 @@ import org.springframework.data.redis.core.ZSetOperations;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.stablebridge.indexer.domain.model.ChainId.ARBITRUM;
+import static com.stablebridge.indexer.domain.model.ChainId.AVALANCHE;
+import static com.stablebridge.indexer.domain.model.ChainId.BASE;
+import static com.stablebridge.indexer.domain.model.ChainId.BSC;
+import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
+import static com.stablebridge.indexer.domain.model.ChainId.OPTIMISM;
+import static com.stablebridge.indexer.domain.model.ChainId.POLYGON;
 import static com.stablebridge.indexer.infrastructure.progress.RedisBlockProgressStore.FAILED_KEY_PREFIX;
 import static com.stablebridge.indexer.infrastructure.progress.RedisBlockProgressStore.PROGRESS_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,11 +52,11 @@ class RedisBlockProgressStoreTest {
         void shouldReturnBlockNumberWhenProgressExists() {
             // given
             given(redisTemplate.opsForHash()).willReturn(hashOperations);
-            given(hashOperations.get(PROGRESS_KEY, ChainId.ETHEREUM.name()))
+            given(hashOperations.get(PROGRESS_KEY, ETHEREUM.name()))
                     .willReturn("12345678");
 
             // when
-            OptionalLong result = store.getLastProcessedBlock(ChainId.ETHEREUM);
+            var result = store.getLastProcessedBlock(ETHEREUM);
 
             // then
             assertThat(result).isEqualTo(OptionalLong.of(12345678L));
@@ -61,11 +67,11 @@ class RedisBlockProgressStoreTest {
         void shouldReturnEmptyWhenNoProgressExists() {
             // given
             given(redisTemplate.opsForHash()).willReturn(hashOperations);
-            given(hashOperations.get(PROGRESS_KEY, ChainId.POLYGON.name()))
+            given(hashOperations.get(PROGRESS_KEY, POLYGON.name()))
                     .willReturn(null);
 
             // when
-            OptionalLong result = store.getLastProcessedBlock(ChainId.POLYGON);
+            var result = store.getLastProcessedBlock(POLYGON);
 
             // then
             assertThat(result).isEqualTo(OptionalLong.empty());
@@ -83,10 +89,10 @@ class RedisBlockProgressStoreTest {
             given(redisTemplate.opsForHash()).willReturn(hashOperations);
 
             // when
-            store.saveLastProcessedBlock(ChainId.ARBITRUM, 99887766L);
+            store.saveLastProcessedBlock(ARBITRUM, 99887766L);
 
             // then
-            then(hashOperations).should().put(PROGRESS_KEY, ChainId.ARBITRUM.name(), "99887766");
+            then(hashOperations).should().put(PROGRESS_KEY, ARBITRUM.name(), "99887766");
         }
     }
 
@@ -101,11 +107,11 @@ class RedisBlockProgressStoreTest {
             given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
 
             // when
-            store.addFailedBlock(ChainId.BASE, 55555L);
+            store.addFailedBlock(BASE, 55555L);
 
             // then
             then(zSetOperations).should().add(
-                    FAILED_KEY_PREFIX + ChainId.BASE.name(),
+                    FAILED_KEY_PREFIX + BASE.name(),
                     "55555",
                     55555.0
             );
@@ -121,11 +127,11 @@ class RedisBlockProgressStoreTest {
         void shouldReturnFailedBlockNumbers() {
             // given
             given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
-            given(zSetOperations.range(FAILED_KEY_PREFIX + ChainId.OPTIMISM.name(), 0, -1))
+            given(zSetOperations.range(FAILED_KEY_PREFIX + OPTIMISM.name(), 0, -1))
                     .willReturn(Set.of("100", "200", "300"));
 
             // when
-            Set<Long> result = store.getFailedBlocks(ChainId.OPTIMISM);
+            var result = store.getFailedBlocks(OPTIMISM);
 
             // then
             assertThat(result).isEqualTo(Set.of(100L, 200L, 300L));
@@ -136,11 +142,11 @@ class RedisBlockProgressStoreTest {
         void shouldReturnEmptySetWhenNoFailedBlocks() {
             // given
             given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
-            given(zSetOperations.range(FAILED_KEY_PREFIX + ChainId.BSC.name(), 0, -1))
+            given(zSetOperations.range(FAILED_KEY_PREFIX + BSC.name(), 0, -1))
                     .willReturn(null);
 
             // when
-            Set<Long> result = store.getFailedBlocks(ChainId.BSC);
+            var result = store.getFailedBlocks(BSC);
 
             // then
             assertThat(result).isEqualTo(Set.of());
@@ -151,11 +157,11 @@ class RedisBlockProgressStoreTest {
         void shouldReturnEmptySetWhenSortedSetIsEmpty() {
             // given
             given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
-            given(zSetOperations.range(FAILED_KEY_PREFIX + ChainId.AVALANCHE.name(), 0, -1))
+            given(zSetOperations.range(FAILED_KEY_PREFIX + AVALANCHE.name(), 0, -1))
                     .willReturn(Set.of());
 
             // when
-            Set<Long> result = store.getFailedBlocks(ChainId.AVALANCHE);
+            var result = store.getFailedBlocks(AVALANCHE);
 
             // then
             assertThat(result).isEqualTo(Set.of());
@@ -173,11 +179,11 @@ class RedisBlockProgressStoreTest {
             given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
 
             // when
-            store.removeFailedBlock(ChainId.ETHEREUM, 42000L);
+            store.removeFailedBlock(ETHEREUM, 42000L);
 
             // then
             then(zSetOperations).should().remove(
-                    FAILED_KEY_PREFIX + ChainId.ETHEREUM.name(),
+                    FAILED_KEY_PREFIX + ETHEREUM.name(),
                     "42000"
             );
         }

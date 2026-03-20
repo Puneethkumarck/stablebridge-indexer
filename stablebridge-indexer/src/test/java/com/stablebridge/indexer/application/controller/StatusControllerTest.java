@@ -1,8 +1,5 @@
 package com.stablebridge.indexer.application.controller;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stablebridge.indexer.api.BloomStatusResponse;
 import com.stablebridge.indexer.api.ErrorResponse;
 import com.stablebridge.indexer.api.IndexerStatusResponse;
@@ -16,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,7 +38,8 @@ class StatusControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockitoBean
     private StatusQueryHandler statusQueryHandler;
@@ -80,7 +79,7 @@ class StatusControllerTest {
 
             var actual = objectMapper.readValue(
                     result.getResponse().getContentAsString(),
-                    new TypeReference<List<IndexerStatusResponse>>() {});
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, IndexerStatusResponse.class));
             var expected = List.of(
                     new IndexerStatusResponse(
                             ETHEREUM_CHAIN, "EVM", "STOPPED",

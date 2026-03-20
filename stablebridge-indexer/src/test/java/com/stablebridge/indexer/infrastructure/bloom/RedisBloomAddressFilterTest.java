@@ -16,6 +16,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.nio.charset.StandardCharsets;
 
+import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
+import static com.stablebridge.indexer.domain.model.NetworkType.SOLANA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -26,7 +28,7 @@ import static org.mockito.Mockito.lenient;
 class RedisBloomAddressFilterTest {
 
     private static final String TEST_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18";
-    private static final NetworkType TEST_NETWORK = NetworkType.EVM;
+    private static final NetworkType TEST_NETWORK = EVM;
     private static final String BLOOM_KEY = "indexer:bloom:EVM";
     private static final byte[] BLOOM_KEY_BYTES = BLOOM_KEY.getBytes(StandardCharsets.UTF_8);
     private static final byte[] ADDRESS_BYTES = TEST_ADDRESS.getBytes(StandardCharsets.UTF_8);
@@ -126,7 +128,7 @@ class RedisBloomAddressFilterTest {
             given(redisCommands.execute("BF.EXISTS", solanaKeyBytes, ADDRESS_BYTES))
                     .willReturn(1L);
 
-            boolean result = filter.mightContain(TEST_ADDRESS, NetworkType.SOLANA);
+            boolean result = filter.mightContain(TEST_ADDRESS, SOLANA);
 
             assertThat(result).isTrue();
         }

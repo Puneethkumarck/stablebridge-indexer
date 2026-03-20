@@ -10,6 +10,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
+import static com.stablebridge.indexer.domain.model.NetworkType.SOLANA;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -20,7 +22,7 @@ class GuavaBloomAddressFilterTest {
 
     private static final String ADDRESS = "0xabcdef1234567890abcdef1234567890abcdef12";
     private static final String UNKNOWN_ADDRESS = "0x0000000000000000000000000000000000000000";
-    private static final NetworkType NETWORK_TYPE = NetworkType.EVM;
+    private static final NetworkType NETWORK_TYPE = EVM;
     private static final long EXPECTED_INSERTIONS = 1_000L;
     private static final double ERROR_RATE = 0.001;
 
@@ -60,9 +62,9 @@ class GuavaBloomAddressFilterTest {
         @Test
         @DisplayName("filters are scoped per network type")
         void filtersAreScopedPerNetworkType() {
-            filter.add(ADDRESS, NetworkType.EVM);
+            filter.add(ADDRESS, EVM);
 
-            boolean result = filter.mightContain(ADDRESS, NetworkType.SOLANA);
+            boolean result = filter.mightContain(ADDRESS, SOLANA);
 
             assertThat(result).isFalse();
         }
@@ -116,11 +118,11 @@ class GuavaBloomAddressFilterTest {
         @Test
         @DisplayName("supports adding to different network types independently")
         void supportsMultipleNetworkTypes() {
-            filter.add(ADDRESS, NetworkType.EVM);
-            filter.add(ADDRESS, NetworkType.SOLANA);
+            filter.add(ADDRESS, EVM);
+            filter.add(ADDRESS, SOLANA);
 
-            boolean evmResult = filter.mightContain(ADDRESS, NetworkType.EVM);
-            boolean solanaResult = filter.mightContain(ADDRESS, NetworkType.SOLANA);
+            boolean evmResult = filter.mightContain(ADDRESS, EVM);
+            boolean solanaResult = filter.mightContain(ADDRESS, SOLANA);
 
             assertThat(evmResult).isTrue();
             assertThat(solanaResult).isTrue();
