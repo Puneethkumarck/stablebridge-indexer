@@ -29,4 +29,9 @@ class EvmRpcException extends RuntimeException {
         return new EvmRpcException(
                 "RPC response parse error: method=%s, error=%s".formatted(method, cause.getMessage()), cause);
     }
+
+    static EvmRpcException allUrlsUnhealthy(int totalUrls) {
+        return new EvmRpcException(
+                "All %d RPC URLs are unhealthy and not eligible for health probe".formatted(totalUrls));
+    }
 }
