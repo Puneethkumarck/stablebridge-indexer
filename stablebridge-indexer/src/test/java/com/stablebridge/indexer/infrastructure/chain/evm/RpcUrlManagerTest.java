@@ -1,5 +1,6 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
+import com.stablebridge.indexer.testutil.MutableClock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -430,38 +431,6 @@ class RpcUrlManagerTest {
 
             // then
             assertThat(manager.totalUrlCount()).isEqualTo(3);
-        }
-    }
-
-    /**
-     * A mutable Clock implementation for testing time-dependent behavior.
-     */
-    private static final class MutableClock extends Clock {
-
-        private volatile Instant instant;
-        private final ZoneId zone = ZoneId.of("UTC");
-
-        MutableClock(Instant instant) {
-            this.instant = instant;
-        }
-
-        void setInstant(Instant instant) {
-            this.instant = instant;
-        }
-
-        @Override
-        public ZoneId getZone() {
-            return zone;
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return instant;
         }
     }
 
