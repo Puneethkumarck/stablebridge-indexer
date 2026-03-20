@@ -1,6 +1,8 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,12 +35,15 @@ class ResilientEvmRpcClientTest {
     @Mock
     private EvmRpcClient delegate;
 
+    private MeterRegistry meterRegistry;
+
     private ResilientEvmRpcClient resilientClient;
 
     @BeforeEach
     void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
         resilientClient = new ResilientEvmRpcClient(
-                delegate, CHAIN_NAME, MAX_RETRIES, RATE_LIMIT_RPS, RATE_LIMIT_BURST);
+                delegate, CHAIN_NAME, MAX_RETRIES, RATE_LIMIT_RPS, RATE_LIMIT_BURST, meterRegistry);
     }
 
     @Nested
@@ -137,6 +142,24 @@ class ResilientEvmRpcClientTest {
 
             // then
             assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("records RPC latency timer for each method call")
+        void recordsRpcLatencyTimerForEachMethodCall() {
+            // given
+            given(delegate.getLatestBlockNumber()).willReturn(BLOCK_NUMBER);
+
+            // when
+            resilientClient.getLatestBlockNumber();
+
+            // then
+            var timer = meterRegistry.find("indexer.rpc.latency")
+                    .tag("chain", CHAIN_NAME)
+                    .tag("method", "getLatestBlockNumber")
+                    .timer();
+            assertThat(timer).isNotNull();
+            assertThat(timer.count()).isEqualTo(1);
         }
     }
 

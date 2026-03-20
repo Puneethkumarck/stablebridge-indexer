@@ -39,6 +39,7 @@ public abstract class BaseWorker {
     private final WalletAddressRepository walletAddressRepository;
     private final Counter blocksProcessedCounter;
     private final Counter transfersMatchedCounter;
+    private final Counter blocksFailedCounter;
     private final AtomicReference<WorkerState> state = new AtomicReference<>(STOPPED);
 
     protected BaseWorker(
@@ -57,6 +58,9 @@ public abstract class BaseWorker {
                 .tag("chain", chainIndexer.getChainId().name())
                 .register(meterRegistry);
         this.transfersMatchedCounter = Counter.builder("indexer.transfers.matched")
+                .tag("chain", chainIndexer.getChainId().name())
+                .register(meterRegistry);
+        this.blocksFailedCounter = Counter.builder("indexer.blocks.failed")
                 .tag("chain", chainIndexer.getChainId().name())
                 .register(meterRegistry);
     }
@@ -119,6 +123,9 @@ public abstract class BaseWorker {
             blocksProcessedCounter.increment();
 
             log.debug("Block processed successfully — blockNumber={}", blockNumber);
+        } catch (Exception e) {
+            blocksFailedCounter.increment();
+            throw e;
         } finally {
             clearMdcContext();
         }

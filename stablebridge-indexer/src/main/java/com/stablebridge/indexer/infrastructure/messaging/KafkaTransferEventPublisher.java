@@ -3,12 +3,15 @@ package com.stablebridge.indexer.infrastructure.messaging;
 import com.stablebridge.indexer.api.TransferEvent;
 import com.stablebridge.indexer.domain.event.TransferDetectedEvent;
 import com.stablebridge.indexer.domain.port.TransferEventPublisher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Kafka-based implementation of {@link TransferEventPublisher}.
@@ -29,23 +32,38 @@ class KafkaTransferEventPublisher implements TransferEventPublisher {
 
     private final KafkaTemplate<String, TransferEvent> kafkaTemplate;
     private final TransferEventMapper transferEventMapper;
+    private final MeterRegistry meterRegistry;
+    private final ConcurrentHashMap<String, Counter> failureCounters = new ConcurrentHashMap<>();
 
     @Override
     public void publish(TransferDetectedEvent event) {
-        TransferEvent transferEvent = transferEventMapper.toTransferEvent(event);
-        String topic = TOPIC_PREFIX + event.transfer().chainId().name();
-        String key = event.transfer().toAddress();
+        var transferEvent = transferEventMapper.toTransferEvent(event);
+        var chain = event.transfer().chainId().name();
+        var topic = TOPIC_PREFIX + chain;
+        var key = event.transfer().toAddress();
 
         log.info("Publishing transfer event to topic={}, key={}, txHash={}",
                 topic, key, transferEvent.txHash());
 
-        kafkaTemplate.send(topic, key, transferEvent);
+        kafkaTemplate.send(topic, key, transferEvent)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        failureCounter(chain).increment();
+                        log.error("Failed to publish transfer event — topic={}, key={}, error={}",
+                                topic, key, ex.getMessage());
+                    }
+                });
     }
 
     @Override
     public void publishAll(List<TransferDetectedEvent> events) {
-        for (TransferDetectedEvent event : events) {
-            publish(event);
-        }
+        events.forEach(this::publish);
+    }
+
+    private Counter failureCounter(String chain) {
+        return failureCounters.computeIfAbsent(chain, c ->
+                Counter.builder("indexer.kafka.publish.failed")
+                        .tag("chain", c)
+                        .register(meterRegistry));
     }
 }

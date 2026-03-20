@@ -3,6 +3,8 @@ package com.stablebridge.indexer.infrastructure.bloom;
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,8 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Redis Bloom filter implementation of {@link AddressFilter}.
@@ -40,11 +44,17 @@ public class RedisBloomAddressFilter implements AddressFilter {
     private final long expectedInsertions;
     private final double errorRate;
     private final WalletAddressRepository walletAddressRepository;
+    private final MeterRegistry meterRegistry;
+    private final ConcurrentHashMap<NetworkType, AtomicLong> bloomSizes = new ConcurrentHashMap<>();
 
     @PostConstruct
     void initializeFilters() {
         for (NetworkType networkType : NetworkType.values()) {
             initializeFilter(networkType);
+            var size = bloomSizes.computeIfAbsent(networkType, nt -> new AtomicLong(0));
+            Gauge.builder("indexer.bloom.size", size, AtomicLong::get)
+                    .tag("networkType", networkType.name())
+                    .register(meterRegistry);
         }
         log.info("Initialized Redis bloom filters for all network types — expectedInsertions={}, errorRate={}",
                 expectedInsertions, errorRate);
@@ -71,15 +81,16 @@ public class RedisBloomAddressFilter implements AddressFilter {
 
     @Override
     public void add(String address, NetworkType networkType) {
-        String key = bloomKey(networkType);
+        var key = bloomKey(networkType);
         redisTemplate.execute((RedisCallback<Boolean>) connection -> {
-            Object rawResult = connection.commands().execute(
+            var rawResult = connection.commands().execute(
                     "BF.ADD",
                     key.getBytes(StandardCharsets.UTF_8),
                     address.getBytes(StandardCharsets.UTF_8)
             );
             return parseBooleanReply(rawResult);
         });
+        bloomSizes.computeIfAbsent(networkType, nt -> new AtomicLong(0)).incrementAndGet();
         log.debug("Added address to Redis bloom filter — networkType={}, address={}", networkType, address);
     }
 

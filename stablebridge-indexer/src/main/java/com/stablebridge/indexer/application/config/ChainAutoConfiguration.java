@@ -8,6 +8,7 @@ import com.stablebridge.indexer.domain.port.ChainIndexer;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,11 +25,12 @@ class ChainAutoConfiguration {
 
     @Bean
     List<ChainIndexer> chainIndexers(IndexerProperties indexerProperties,
-                                      ObjectMapper objectMapper) {
+                                      ObjectMapper objectMapper,
+                                      MeterRegistry meterRegistry) {
         var indexers = indexerProperties.chains().entrySet().stream()
                 .filter(entry -> entry.getValue().enabled())
                 .filter(entry -> EVM_CHAIN_TYPE.equals(entry.getValue().type()))
-                .map(entry -> createEvmChainIndexer(entry.getKey(), entry.getValue(), objectMapper))
+                .map(entry -> createEvmChainIndexer(entry.getKey(), entry.getValue(), objectMapper, meterRegistry))
                 .toList();
 
         log.info("Auto-configured {} EVM chain indexers", indexers.size());
@@ -37,9 +39,10 @@ class ChainAutoConfiguration {
 
     private static ChainIndexer createEvmChainIndexer(String networkId,
                                                        ChainProperties chainProperties,
-                                                       ObjectMapper objectMapper) {
+                                                       ObjectMapper objectMapper,
+                                                       MeterRegistry meterRegistry) {
         var config = toEvmChainConfig(networkId, chainProperties);
-        return EvmChainIndexerFactory.create(config, objectMapper);
+        return EvmChainIndexerFactory.create(config, objectMapper, meterRegistry);
     }
 
     static EvmChainConfig toEvmChainConfig(String networkId,

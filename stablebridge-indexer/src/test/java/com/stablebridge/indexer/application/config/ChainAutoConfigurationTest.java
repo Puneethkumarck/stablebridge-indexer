@@ -8,6 +8,8 @@ import com.stablebridge.indexer.application.properties.RpcProperties;
 import com.stablebridge.indexer.application.properties.TokenContractProperties;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChainAutoConfigurationTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final MeterRegistry METER_REGISTRY = new SimpleMeterRegistry();
 
     private final ChainAutoConfiguration configuration = new ChainAutoConfiguration();
 
@@ -44,7 +47,7 @@ class ChainAutoConfigurationTest {
             var indexerProperties = new IndexerProperties(chains, null, null);
 
             // when
-            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER);
+            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER, METER_REGISTRY);
 
             // then
             assertThat(indexers).hasSize(2);
@@ -63,7 +66,7 @@ class ChainAutoConfigurationTest {
             var indexerProperties = new IndexerProperties(chains, null, null);
 
             // when
-            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER);
+            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER, METER_REGISTRY);
 
             // then
             assertThat(indexers).hasSize(1);
@@ -80,7 +83,7 @@ class ChainAutoConfigurationTest {
             var indexerProperties = new IndexerProperties(chains, null, null);
 
             // when
-            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER);
+            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER, METER_REGISTRY);
 
             // then
             assertThat(indexers).isEmpty();
@@ -93,7 +96,7 @@ class ChainAutoConfigurationTest {
             var indexerProperties = new IndexerProperties(Map.of(), null, null);
 
             // when
-            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER);
+            var indexers = configuration.chainIndexers(indexerProperties, OBJECT_MAPPER, METER_REGISTRY);
 
             // then
             assertThat(indexers).isEmpty();

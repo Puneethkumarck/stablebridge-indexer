@@ -162,6 +162,25 @@ class RegularWorkerTest {
         }
 
         @Test
+        @DisplayName("updates chain lag gauge after polling")
+        void updatesChainLagGaugeAfterPolling() {
+            // given
+            given(chainIndexer.getLatestFinalizedBlockNumber()).willReturn(150L);
+            given(blockProgressStore.getLastProcessedBlock(ETHEREUM)).willReturn(OptionalLong.of(100L));
+            for (var block = 101L; block <= 110L; block++) {
+                given(chainIndexer.indexBlock(block)).willReturn(aBlockResult().transfers(List.of()).build());
+            }
+
+            // when
+            worker.poll();
+
+            // then
+            var lagGauge = meterRegistry.find("indexer.chain.lag").tag("chain", "ETHEREUM").gauge();
+            assertThat(lagGauge).isNotNull();
+            assertThat(lagGauge.value()).isEqualTo(50.0);
+        }
+
+        @Test
         @DisplayName("processes exactly one block when one block behind")
         void processesExactlyOneBlockWhenOneBlockBehind() {
             // given

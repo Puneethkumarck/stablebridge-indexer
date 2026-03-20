@@ -5,6 +5,8 @@ import com.google.common.hash.Funnels;
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,13 +40,17 @@ public class GuavaBloomAddressFilter implements AddressFilter {
     private final long expectedInsertions;
     private final double errorRate;
     private final WalletAddressRepository walletAddressRepository;
+    private final MeterRegistry meterRegistry;
 
     private final ConcurrentHashMap<NetworkType, BloomFilter<String>> filters = new ConcurrentHashMap<>();
 
     @PostConstruct
     void initialize() {
         for (NetworkType networkType : NetworkType.values()) {
-            filters.computeIfAbsent(networkType, this::createBloomFilter);
+            var filter = filters.computeIfAbsent(networkType, this::createBloomFilter);
+            Gauge.builder("indexer.bloom.size", filter, BloomFilter::approximateElementCount)
+                    .tag("networkType", networkType.name())
+                    .register(meterRegistry);
         }
         log.info("Initialized Guava bloom filters for all network types — expectedInsertions={}, errorRate={}",
                 expectedInsertions, errorRate);
