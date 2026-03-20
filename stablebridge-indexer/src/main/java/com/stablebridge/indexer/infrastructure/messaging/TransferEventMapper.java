@@ -24,6 +24,7 @@ interface TransferEventMapper {
     @Mapping(target = "networkType", expression = "java(event.transfer().chainId().networkType().name())")
     @Mapping(source = "transfer.timestamp", target = "timestamp")
     @Mapping(source = "transfer.nativeTransfer", target = "nativeTransfer")
+    @Mapping(target = "direction", expression = "java(event.direction() != null ? event.direction().name() : null)")
     @Mapping(source = "detectedAt", target = "detectedAt")
     TransferEvent toTransferEvent(TransferDetectedEvent event);
 }

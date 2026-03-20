@@ -4,6 +4,7 @@ import com.stablebridge.indexer.domain.event.TransferDetectedEvent;
 import com.stablebridge.indexer.domain.model.BlockResult;
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.model.Transfer;
+import com.stablebridge.indexer.domain.model.TransferDirection;
 import com.stablebridge.indexer.domain.model.WorkerState;
 import com.stablebridge.indexer.domain.model.WorkerType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
@@ -17,10 +18,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.stablebridge.indexer.domain.model.TransferDirection.INCOMING;
+import static com.stablebridge.indexer.domain.model.TransferDirection.OUTGOING;
 import static com.stablebridge.indexer.domain.model.WorkerState.PARKED;
 import static com.stablebridge.indexer.domain.model.WorkerState.RUNNING;
 import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
@@ -120,15 +124,30 @@ public abstract class BaseWorker {
         }
     }
 
+    protected boolean isTwoWayIndexingEnabled() {
+        return false;
+    }
+
     protected List<TransferDetectedEvent> matchTransfers(BlockResult blockResult) {
         var networkType = getChainId().networkType();
+        var events = new ArrayList<TransferDetectedEvent>();
 
-        return blockResult.transfers().stream()
-                .filter(transfer -> addressFilter.mightContain(transfer.toAddress(), networkType))
-                .filter(transfer -> walletAddressRepository.existsByAddressAndNetworkType(
-                        transfer.toAddress(), networkType))
-                .map(this::toTransferDetectedEvent)
-                .toList();
+        for (var transfer : blockResult.transfers()) {
+            if (addressFilter.mightContain(transfer.toAddress(), networkType)
+                    && walletAddressRepository.existsByAddressAndNetworkType(
+                            transfer.toAddress(), networkType)) {
+                events.add(toTransferDetectedEvent(transfer, INCOMING));
+            }
+
+            if (isTwoWayIndexingEnabled()
+                    && addressFilter.mightContain(transfer.fromAddress(), networkType)
+                    && walletAddressRepository.existsByAddressAndNetworkType(
+                            transfer.fromAddress(), networkType)) {
+                events.add(toTransferDetectedEvent(transfer, OUTGOING));
+            }
+        }
+
+        return List.copyOf(events);
     }
 
     protected ChainIndexer getChainIndexer() {
@@ -139,9 +158,10 @@ public abstract class BaseWorker {
         return blockProgressStore;
     }
 
-    private TransferDetectedEvent toTransferDetectedEvent(Transfer transfer) {
+    private TransferDetectedEvent toTransferDetectedEvent(Transfer transfer, TransferDirection direction) {
         return TransferDetectedEvent.builder()
                 .transfer(transfer)
+                .direction(direction)
                 .detectedAt(Instant.now())
                 .build();
     }

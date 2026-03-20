@@ -10,6 +10,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+import static com.stablebridge.indexer.domain.model.TransferDirection.INCOMING;
+
 /**
  * Test fixtures for transfer-related domain objects.
  *
@@ -83,6 +85,7 @@ public final class TransferFixtures {
     public static TransferDetectedEvent.TransferDetectedEventBuilder aTransferDetectedEvent() {
         return TransferDetectedEvent.builder()
                 .transfer(aTransfer().build())
+                .direction(INCOMING)
                 .detectedAt(Instant.parse("2026-03-19T10:15:31Z"));
     }
 

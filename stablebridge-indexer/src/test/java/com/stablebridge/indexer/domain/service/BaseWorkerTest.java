@@ -25,11 +25,14 @@ import java.util.List;
 
 import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
 import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
+import static com.stablebridge.indexer.domain.model.TransferDirection.INCOMING;
+import static com.stablebridge.indexer.domain.model.TransferDirection.OUTGOING;
 import static com.stablebridge.indexer.domain.model.WorkerState.PARKED;
 import static com.stablebridge.indexer.domain.model.WorkerState.RUNNING;
 import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
 import static com.stablebridge.indexer.domain.model.WorkerType.REGULAR;
 import static com.stablebridge.indexer.testutil.TransferFixtures.DEFAULT_BLOCK_NUMBER;
+import static com.stablebridge.indexer.testutil.TransferFixtures.DEFAULT_FROM_ADDRESS;
 import static com.stablebridge.indexer.testutil.TransferFixtures.DEFAULT_TO_ADDRESS;
 import static com.stablebridge.indexer.testutil.TransferFixtures.aBlockResult;
 import static com.stablebridge.indexer.testutil.TransferFixtures.aTransfer;
@@ -103,6 +106,7 @@ class BaseWorkerTest {
 
             var expectedEvent = TransferDetectedEvent.builder()
                     .transfer(transfer)
+                    .direction(INCOMING)
                     .detectedAt(Instant.now())
                     .build();
             assertThat(eventsCaptor.getValue())
@@ -170,6 +174,7 @@ class BaseWorkerTest {
 
             var expectedEvent = TransferDetectedEvent.builder()
                     .transfer(matchedTransfer)
+                    .direction(INCOMING)
                     .detectedAt(Instant.now())
                     .build();
             assertThat(eventsCaptor.getValue())
@@ -477,6 +482,123 @@ class BaseWorkerTest {
         }
     }
 
+    @Nested
+    @DisplayName("two-way indexing")
+    class TwoWayIndexing {
+
+        private TwoWayTestWorker twoWayWorker;
+
+        @BeforeEach
+        void setUp() {
+            twoWayWorker = new TwoWayTestWorker(
+                    chainIndexer, addressFilter, transferEventPublisher,
+                    blockProgressStore, walletAddressRepository, meterRegistry);
+        }
+
+        @Test
+        @DisplayName("emits INCOMING event when only toAddress matches")
+        void emitsIncomingEventWhenOnlyToAddressMatches() {
+            // given
+            var transfer = aTransfer().build();
+            var blockResult = aBlockResult().transfers(List.of(transfer)).build();
+            given(chainIndexer.indexBlock(DEFAULT_BLOCK_NUMBER)).willReturn(blockResult);
+            given(addressFilter.mightContain(DEFAULT_TO_ADDRESS, EVM)).willReturn(true);
+            given(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_TO_ADDRESS, EVM))
+                    .willReturn(true);
+            given(addressFilter.mightContain(DEFAULT_FROM_ADDRESS, EVM)).willReturn(false);
+
+            // when
+            twoWayWorker.processBlock(DEFAULT_BLOCK_NUMBER);
+
+            // then
+            then(transferEventPublisher).should().publishAll(eventsCaptor.capture());
+            assertThat(eventsCaptor.getValue()).hasSize(1);
+            assertThat(eventsCaptor.getValue().getFirst().direction()).isEqualTo(INCOMING);
+        }
+
+        @Test
+        @DisplayName("emits OUTGOING event when only fromAddress matches")
+        void emitsOutgoingEventWhenOnlyFromAddressMatches() {
+            // given
+            var transfer = aTransfer().build();
+            var blockResult = aBlockResult().transfers(List.of(transfer)).build();
+            given(chainIndexer.indexBlock(DEFAULT_BLOCK_NUMBER)).willReturn(blockResult);
+            given(addressFilter.mightContain(DEFAULT_TO_ADDRESS, EVM)).willReturn(false);
+            given(addressFilter.mightContain(DEFAULT_FROM_ADDRESS, EVM)).willReturn(true);
+            given(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_FROM_ADDRESS, EVM))
+                    .willReturn(true);
+
+            // when
+            twoWayWorker.processBlock(DEFAULT_BLOCK_NUMBER);
+
+            // then
+            then(transferEventPublisher).should().publishAll(eventsCaptor.capture());
+            assertThat(eventsCaptor.getValue()).hasSize(1);
+            assertThat(eventsCaptor.getValue().getFirst().direction()).isEqualTo(OUTGOING);
+        }
+
+        @Test
+        @DisplayName("emits both INCOMING and OUTGOING events when both addresses match")
+        void emitsBothEventsWhenBothAddressesMatch() {
+            // given
+            var transfer = aTransfer().build();
+            var blockResult = aBlockResult().transfers(List.of(transfer)).build();
+            given(chainIndexer.indexBlock(DEFAULT_BLOCK_NUMBER)).willReturn(blockResult);
+            given(addressFilter.mightContain(DEFAULT_TO_ADDRESS, EVM)).willReturn(true);
+            given(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_TO_ADDRESS, EVM))
+                    .willReturn(true);
+            given(addressFilter.mightContain(DEFAULT_FROM_ADDRESS, EVM)).willReturn(true);
+            given(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_FROM_ADDRESS, EVM))
+                    .willReturn(true);
+
+            // when
+            twoWayWorker.processBlock(DEFAULT_BLOCK_NUMBER);
+
+            // then
+            then(transferEventPublisher).should().publishAll(eventsCaptor.capture());
+            assertThat(eventsCaptor.getValue()).hasSize(2);
+            assertThat(eventsCaptor.getValue().get(0).direction()).isEqualTo(INCOMING);
+            assertThat(eventsCaptor.getValue().get(1).direction()).isEqualTo(OUTGOING);
+        }
+
+        @Test
+        @DisplayName("does not emit OUTGOING when two-way indexing is disabled")
+        void doesNotEmitOutgoingWhenTwoWayDisabled() {
+            // given
+            var transfer = aTransfer().build();
+            var blockResult = aBlockResult().transfers(List.of(transfer)).build();
+            given(chainIndexer.indexBlock(DEFAULT_BLOCK_NUMBER)).willReturn(blockResult);
+            given(addressFilter.mightContain(DEFAULT_TO_ADDRESS, EVM)).willReturn(true);
+            given(walletAddressRepository.existsByAddressAndNetworkType(DEFAULT_TO_ADDRESS, EVM))
+                    .willReturn(true);
+
+            // when
+            worker.processBlock(DEFAULT_BLOCK_NUMBER);
+
+            // then
+            then(transferEventPublisher).should().publishAll(eventsCaptor.capture());
+            assertThat(eventsCaptor.getValue()).hasSize(1);
+            assertThat(eventsCaptor.getValue().getFirst().direction()).isEqualTo(INCOMING);
+        }
+
+        @Test
+        @DisplayName("emits no events when neither address matches")
+        void emitsNoEventsWhenNeitherAddressMatches() {
+            // given
+            var transfer = aTransfer().build();
+            var blockResult = aBlockResult().transfers(List.of(transfer)).build();
+            given(chainIndexer.indexBlock(DEFAULT_BLOCK_NUMBER)).willReturn(blockResult);
+            given(addressFilter.mightContain(DEFAULT_TO_ADDRESS, EVM)).willReturn(false);
+            given(addressFilter.mightContain(DEFAULT_FROM_ADDRESS, EVM)).willReturn(false);
+
+            // when
+            twoWayWorker.processBlock(DEFAULT_BLOCK_NUMBER);
+
+            // then
+            then(transferEventPublisher).shouldHaveNoInteractions();
+        }
+    }
+
     private static class TestWorker extends BaseWorker {
 
         TestWorker(
@@ -493,6 +615,30 @@ class BaseWorkerTest {
         @Override
         public WorkerType getWorkerType() {
             return REGULAR;
+        }
+    }
+
+    private static class TwoWayTestWorker extends BaseWorker {
+
+        TwoWayTestWorker(
+                ChainIndexer chainIndexer,
+                AddressFilter addressFilter,
+                TransferEventPublisher transferEventPublisher,
+                BlockProgressStore blockProgressStore,
+                WalletAddressRepository walletAddressRepository,
+                MeterRegistry meterRegistry) {
+            super(chainIndexer, addressFilter, transferEventPublisher,
+                    blockProgressStore, walletAddressRepository, meterRegistry);
+        }
+
+        @Override
+        public WorkerType getWorkerType() {
+            return REGULAR;
+        }
+
+        @Override
+        protected boolean isTwoWayIndexingEnabled() {
+            return true;
         }
     }
 }

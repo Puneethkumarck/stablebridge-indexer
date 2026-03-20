@@ -23,4 +23,5 @@ public record TransferEvent(
         String networkType,
         Instant timestamp,
         boolean nativeTransfer,
+        String direction,
         Instant detectedAt) {}
