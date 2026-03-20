@@ -16,7 +16,7 @@ import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ import static com.stablebridge.indexer.domain.model.WorkerState.PARKED;
 import static com.stablebridge.indexer.domain.model.WorkerState.RUNNING;
 
 @Slf4j
-@Configuration
+@Component
 public class IndexerOrchestrator implements SmartLifecycle {
 
     static final int CATCHUP_CHUNK_SIZE = 100;

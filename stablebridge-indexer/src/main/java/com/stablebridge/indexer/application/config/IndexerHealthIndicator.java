@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.stablebridge.indexer.domain.model.WorkerState.PARKED;
 import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
@@ -58,11 +59,11 @@ public class IndexerHealthIndicator implements HealthIndicator {
     }
 
     private Map<String, String> buildChainDetails(List<BaseWorker> workers) {
-        var details = new LinkedHashMap<String, String>();
-        workers.forEach(worker -> {
-            var key = worker.getChainId().name() + ":" + worker.getWorkerType().name();
-            details.put(key, worker.getState().name());
-        });
-        return details;
+        return workers.stream()
+                .collect(Collectors.toMap(
+                        w -> w.getChainId().name() + ":" + w.getWorkerType().name(),
+                        w -> w.getState().name(),
+                        (a, b) -> a,
+                        LinkedHashMap::new));
     }
 }
