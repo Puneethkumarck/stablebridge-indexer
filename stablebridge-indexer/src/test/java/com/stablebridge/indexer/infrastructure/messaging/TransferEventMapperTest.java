@@ -38,6 +38,7 @@ class TransferEventMapperTest {
                 "EVM",
                 transfer.timestamp(),
                 transfer.nativeTransfer(),
+                event.direction().name(),
                 event.detectedAt());
 
         // when

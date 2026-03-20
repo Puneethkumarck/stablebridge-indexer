@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static com.stablebridge.indexer.domain.model.ChainId.POLYGON;
+import static com.stablebridge.indexer.domain.model.TransferDirection.INCOMING;
 import static com.stablebridge.indexer.testutil.TransferFixtures.DEFAULT_TO_ADDRESS;
 import static com.stablebridge.indexer.testutil.TransferFixtures.aTransfer;
 import static com.stablebridge.indexer.testutil.TransferFixtures.aTransferDetectedEvent;
@@ -53,6 +54,7 @@ class KafkaTransferEventPublisherTest {
                 transfer.chainId().networkType().name(),
                 transfer.timestamp(),
                 transfer.nativeTransfer(),
+                event.direction().name(),
                 event.detectedAt());
 
         given(transferEventMapper.toTransferEvent(event)).willReturn(expectedApiEvent);
@@ -72,6 +74,7 @@ class KafkaTransferEventPublisherTest {
                 .build();
         var event = TransferDetectedEvent.builder()
                 .transfer(polygonTransfer)
+                .direction(INCOMING)
                 .detectedAt(Instant.parse("2026-03-19T10:15:31Z"))
                 .build();
 
@@ -92,6 +95,7 @@ class KafkaTransferEventPublisherTest {
                 "EVM",
                 polygonTransfer.timestamp(),
                 polygonTransfer.nativeTransfer(),
+                "INCOMING",
                 event.detectedAt());
 
         given(transferEventMapper.toTransferEvent(event)).willReturn(expectedApiEvent);
@@ -115,10 +119,12 @@ class KafkaTransferEventPublisherTest {
 
         var firstEvent = TransferDetectedEvent.builder()
                 .transfer(firstTransfer)
+                .direction(INCOMING)
                 .detectedAt(Instant.parse("2026-03-19T10:15:31Z"))
                 .build();
         var secondEvent = TransferDetectedEvent.builder()
                 .transfer(secondTransfer)
+                .direction(INCOMING)
                 .detectedAt(Instant.parse("2026-03-19T10:15:32Z"))
                 .build();
 
@@ -139,6 +145,7 @@ class KafkaTransferEventPublisherTest {
                 firstTransfer.chainId().networkType().name(),
                 firstTransfer.timestamp(),
                 firstTransfer.nativeTransfer(),
+                "INCOMING",
                 firstEvent.detectedAt());
 
         var secondApiEvent = new TransferEvent(
@@ -158,6 +165,7 @@ class KafkaTransferEventPublisherTest {
                 secondTransfer.chainId().networkType().name(),
                 secondTransfer.timestamp(),
                 secondTransfer.nativeTransfer(),
+                "INCOMING",
                 secondEvent.detectedAt());
 
         given(transferEventMapper.toTransferEvent(firstEvent)).willReturn(firstApiEvent);
