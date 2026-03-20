@@ -16,6 +16,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
+
 /**
  * Domain query handler for indexer status reporting.
  *
@@ -70,7 +72,7 @@ public class StatusQueryHandler {
         return ChainStatus.builder()
                 .chainName(chainName)
                 .networkType(config.networkType())
-                .workerState(WorkerState.STOPPED)
+                .workerState(STOPPED)
                 .lastProcessedBlock(lastProcessedBlock)
                 .latestFinalizedBlock(null)
                 .blocksBehind(null)
@@ -93,9 +95,6 @@ public class StatusQueryHandler {
 
     private Optional<Long> getLastProcessedBlockForChain(ChainId chainId) {
         OptionalLong progress = blockProgressStore.getLastProcessedBlock(chainId);
-        if (progress.isPresent()) {
-            return Optional.of(progress.getAsLong());
-        }
-        return Optional.empty();
+        return progress.isPresent() ? Optional.of(progress.getAsLong()) : Optional.empty();
     }
 }

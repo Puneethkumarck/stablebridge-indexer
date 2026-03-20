@@ -1,5 +1,7 @@
 package com.stablebridge.indexer.api;
 
+import lombok.Builder;
+
 import java.util.List;
 
 /**
@@ -10,6 +12,7 @@ import java.util.List;
  * @param errorRate          target false positive rate (e.g., {@code 0.001} = 0.1%)
  * @param networkTypes       list of network types covered by the bloom filter
  */
+@Builder
 public record BloomStatusResponse(
         String backend,
         long expectedInsertions,

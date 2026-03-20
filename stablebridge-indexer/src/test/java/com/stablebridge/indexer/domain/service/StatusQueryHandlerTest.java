@@ -4,8 +4,6 @@ import com.stablebridge.indexer.domain.model.BloomStatus;
 import com.stablebridge.indexer.domain.model.ChainConfiguration;
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.model.ChainStatus;
-import com.stablebridge.indexer.domain.model.NetworkType;
-import com.stablebridge.indexer.domain.model.WorkerState;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +19,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.stablebridge.indexer.domain.model.NetworkType.BITCOIN;
+import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
+import static com.stablebridge.indexer.domain.model.NetworkType.SOLANA;
+import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -47,12 +49,12 @@ class StatusQueryHandlerTest {
         chainConfigurations = new LinkedHashMap<>();
         chainConfigurations.put(ETHEREUM_CHAIN, ChainConfiguration.builder()
                 .chainName(ETHEREUM_CHAIN)
-                .networkType(NetworkType.EVM)
+                .networkType(EVM)
                 .enabled(true)
                 .build());
         chainConfigurations.put(BASE_CHAIN, ChainConfiguration.builder()
                 .chainName(BASE_CHAIN)
-                .networkType(NetworkType.EVM)
+                .networkType(EVM)
                 .enabled(false)
                 .build());
 
@@ -60,7 +62,7 @@ class StatusQueryHandlerTest {
                 .backend("redis")
                 .expectedInsertions(1_000_000L)
                 .errorRate(0.001)
-                .networkTypes(List.of(NetworkType.EVM, NetworkType.SOLANA, NetworkType.BITCOIN))
+                .networkTypes(List.of(EVM, SOLANA, BITCOIN))
                 .build();
 
         queryHandler = new StatusQueryHandler(blockProgressStore, chainConfigurations, bloomStatus);
@@ -83,8 +85,8 @@ class StatusQueryHandlerTest {
             List<ChainStatus> expected = List.of(
                     ChainStatus.builder()
                             .chainName(ETHEREUM_CHAIN)
-                            .networkType(NetworkType.EVM)
-                            .workerState(WorkerState.STOPPED)
+                            .networkType(EVM)
+                            .workerState(STOPPED)
                             .lastProcessedBlock(ETHEREUM_LAST_BLOCK)
                             .latestFinalizedBlock(null)
                             .blocksBehind(null)
@@ -92,8 +94,8 @@ class StatusQueryHandlerTest {
                             .build(),
                     ChainStatus.builder()
                             .chainName(BASE_CHAIN)
-                            .networkType(NetworkType.EVM)
-                            .workerState(WorkerState.STOPPED)
+                            .networkType(EVM)
+                            .workerState(STOPPED)
                             .lastProcessedBlock(BASE_LAST_BLOCK)
                             .latestFinalizedBlock(null)
                             .blocksBehind(null)
@@ -120,8 +122,8 @@ class StatusQueryHandlerTest {
             List<ChainStatus> expected = List.of(
                     ChainStatus.builder()
                             .chainName(ETHEREUM_CHAIN)
-                            .networkType(NetworkType.EVM)
-                            .workerState(WorkerState.STOPPED)
+                            .networkType(EVM)
+                            .workerState(STOPPED)
                             .lastProcessedBlock(null)
                             .latestFinalizedBlock(null)
                             .blocksBehind(null)
@@ -129,8 +131,8 @@ class StatusQueryHandlerTest {
                             .build(),
                     ChainStatus.builder()
                             .chainName(BASE_CHAIN)
-                            .networkType(NetworkType.EVM)
-                            .workerState(WorkerState.STOPPED)
+                            .networkType(EVM)
+                            .workerState(STOPPED)
                             .lastProcessedBlock(null)
                             .latestFinalizedBlock(null)
                             .blocksBehind(null)
@@ -157,8 +159,8 @@ class StatusQueryHandlerTest {
 
             ChainStatus expected = ChainStatus.builder()
                     .chainName(ETHEREUM_CHAIN)
-                    .networkType(NetworkType.EVM)
-                    .workerState(WorkerState.STOPPED)
+                    .networkType(EVM)
+                    .workerState(STOPPED)
                     .lastProcessedBlock(ETHEREUM_LAST_BLOCK)
                     .latestFinalizedBlock(null)
                     .blocksBehind(null)
@@ -195,7 +197,7 @@ class StatusQueryHandlerTest {
                     .backend("redis")
                     .expectedInsertions(1_000_000L)
                     .errorRate(0.001)
-                    .networkTypes(List.of(NetworkType.EVM, NetworkType.SOLANA, NetworkType.BITCOIN))
+                    .networkTypes(List.of(EVM, SOLANA, BITCOIN))
                     .build();
             assertThat(actual)
                     .usingRecursiveComparison()

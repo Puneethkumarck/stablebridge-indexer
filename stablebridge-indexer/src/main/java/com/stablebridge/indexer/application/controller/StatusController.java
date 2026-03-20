@@ -7,7 +7,6 @@ import com.stablebridge.indexer.domain.model.BloomStatus;
 import com.stablebridge.indexer.domain.model.ChainStatus;
 import com.stablebridge.indexer.domain.service.StatusQueryHandler;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 /**
  * REST controller for indexer status endpoints.
@@ -54,12 +55,12 @@ public class StatusController {
         Optional<ChainStatus> status = statusQueryHandler.getChainStatus(chainName);
         if (status.isEmpty()) {
             ErrorResponse error = new ErrorResponse(
-                    HttpStatus.NOT_FOUND.value(),
-                    HttpStatus.NOT_FOUND.getReasonPhrase(),
+                    NOT_FOUND.value(),
+                    NOT_FOUND.getReasonPhrase(),
                     "Chain not configured: " + chainName,
                     Instant.now()
             );
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            return ResponseEntity.status(NOT_FOUND).body(error);
         }
         return ResponseEntity.ok(mapper.toResponse(status.get()));
     }
