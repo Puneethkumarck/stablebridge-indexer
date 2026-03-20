@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.domain.service;
 
-import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.model.WalletAddress;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
@@ -15,6 +14,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
+import static com.stablebridge.indexer.domain.model.NetworkType.BITCOIN;
+import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
+import static com.stablebridge.indexer.domain.model.NetworkType.SOLANA;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.DEFAULT_ADDRESS;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.DEFAULT_LABEL;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.aWalletAddress;
@@ -42,18 +44,17 @@ class WalletCommandHandlerTest {
         @Test
         @DisplayName("saves wallet to repository and adds to bloom filter")
         void savesWalletToRepositoryAndAddsToBloomFilter() {
-            WalletAddress walletToSave = WalletAddress.builder()
+            var walletToSave = WalletAddress.builder()
                     .address(DEFAULT_ADDRESS)
-                    .networkType(NetworkType.EVM)
+                    .networkType(EVM)
                     .label(DEFAULT_LABEL)
                     .active(true)
                     .build();
-            WalletAddress savedWallet = aWalletAddress().build();
+            var savedWallet = aWalletAddress().build();
 
             given(walletAddressRepository.save(walletToSave)).willReturn(savedWallet);
 
-            WalletAddress result = walletCommandHandler.addWallet(
-                    DEFAULT_ADDRESS, NetworkType.EVM, DEFAULT_LABEL);
+            var result = walletCommandHandler.addWallet(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL);
 
             assertThat(result).usingRecursiveComparison().isEqualTo(savedWallet);
         }
@@ -61,19 +62,19 @@ class WalletCommandHandlerTest {
         @Test
         @DisplayName("adds address to bloom filter after saving to repository")
         void addsAddressToBloomFilter() {
-            WalletAddress walletToSave = WalletAddress.builder()
+            var walletToSave = WalletAddress.builder()
                     .address(DEFAULT_ADDRESS)
-                    .networkType(NetworkType.EVM)
+                    .networkType(EVM)
                     .label(DEFAULT_LABEL)
                     .active(true)
                     .build();
-            WalletAddress savedWallet = aWalletAddress().build();
+            var savedWallet = aWalletAddress().build();
 
             given(walletAddressRepository.save(walletToSave)).willReturn(savedWallet);
 
-            walletCommandHandler.addWallet(DEFAULT_ADDRESS, NetworkType.EVM, DEFAULT_LABEL);
+            walletCommandHandler.addWallet(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL);
 
-            then(addressFilter).should().add(DEFAULT_ADDRESS, NetworkType.EVM);
+            then(addressFilter).should().add(DEFAULT_ADDRESS, EVM);
         }
     }
 
@@ -84,20 +85,20 @@ class WalletCommandHandlerTest {
         @Test
         @DisplayName("saves all wallets and returns saved list")
         void savesAllWalletsAndReturnsSavedList() {
-            WalletAddress walletToSave = WalletAddress.builder()
+            var walletToSave = WalletAddress.builder()
                     .address(DEFAULT_ADDRESS)
-                    .networkType(NetworkType.EVM)
+                    .networkType(EVM)
                     .label(DEFAULT_LABEL)
                     .active(true)
                     .build();
-            WalletAddress savedWallet = aWalletAddress().build();
+            var savedWallet = aWalletAddress().build();
 
             given(walletAddressRepository.save(walletToSave)).willReturn(savedWallet);
 
-            List<WalletAddressTuple> requests = List.of(
-                    new WalletAddressTuple(DEFAULT_ADDRESS, NetworkType.EVM, DEFAULT_LABEL));
+            var requests = List.of(
+                    new WalletAddressTuple(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL));
 
-            List<WalletAddress> results = walletCommandHandler.addWalletsBatch(requests);
+            var results = walletCommandHandler.addWalletsBatch(requests);
 
             assertThat(results)
                     .hasSize(1)
@@ -114,13 +115,13 @@ class WalletCommandHandlerTest {
         @Test
         @DisplayName("returns all wallets for the given network type")
         void returnsAllWalletsForNetworkType() {
-            WalletAddress wallet = aWalletAddress().build();
-            List<WalletAddress> expectedWallets = List.of(wallet);
+            var wallet = aWalletAddress().build();
+            var expectedWallets = List.of(wallet);
 
-            given(walletAddressRepository.findAllByNetworkType(NetworkType.EVM))
+            given(walletAddressRepository.findAllByNetworkType(EVM))
                     .willReturn(expectedWallets);
 
-            List<WalletAddress> results = walletCommandHandler.listWallets(NetworkType.EVM);
+            var results = walletCommandHandler.listWallets(EVM);
 
             assertThat(results).usingRecursiveComparison().isEqualTo(expectedWallets);
         }
@@ -133,12 +134,12 @@ class WalletCommandHandlerTest {
         @Test
         @DisplayName("deletes from repository and removes from bloom filter")
         void deletesFromRepositoryAndRemovesFromBloomFilter() {
-            walletCommandHandler.removeWallet(DEFAULT_ADDRESS, NetworkType.EVM);
+            walletCommandHandler.removeWallet(DEFAULT_ADDRESS, EVM);
 
             then(walletAddressRepository).should()
-                    .deleteByAddressAndNetworkType(DEFAULT_ADDRESS, NetworkType.EVM);
+                    .deleteByAddressAndNetworkType(DEFAULT_ADDRESS, EVM);
             then(addressFilter).should()
-                    .remove(DEFAULT_ADDRESS, NetworkType.EVM);
+                    .remove(DEFAULT_ADDRESS, EVM);
         }
     }
 
@@ -149,17 +150,17 @@ class WalletCommandHandlerTest {
         @Test
         @DisplayName("loads all addresses from DB and adds each to bloom filter for all network types")
         void loadsAllAddressesAndAddsToBloom() {
-            WalletAddress evmWallet = aWalletAddress().build();
-            given(walletAddressRepository.findAllByNetworkType(NetworkType.EVM))
+            var evmWallet = aWalletAddress().build();
+            given(walletAddressRepository.findAllByNetworkType(EVM))
                     .willReturn(List.of(evmWallet));
-            given(walletAddressRepository.findAllByNetworkType(NetworkType.SOLANA))
+            given(walletAddressRepository.findAllByNetworkType(SOLANA))
                     .willReturn(List.of());
-            given(walletAddressRepository.findAllByNetworkType(NetworkType.BITCOIN))
+            given(walletAddressRepository.findAllByNetworkType(BITCOIN))
                     .willReturn(List.of());
 
             walletCommandHandler.rebuildBloom();
 
-            then(addressFilter).should().add(DEFAULT_ADDRESS, NetworkType.EVM);
+            then(addressFilter).should().add(DEFAULT_ADDRESS, EVM);
         }
     }
 }

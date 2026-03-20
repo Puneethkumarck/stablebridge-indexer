@@ -1,11 +1,9 @@
 package com.stablebridge.indexer.application.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stablebridge.indexer.api.WalletAddressRequest;
+import com.stablebridge.indexer.api.WalletAddressResponse;
 import com.stablebridge.indexer.application.config.SecurityAutoConfiguration;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
-import com.stablebridge.indexer.domain.model.NetworkType;
-import com.stablebridge.indexer.domain.model.WalletAddress;
 import com.stablebridge.indexer.domain.service.WalletCommandHandler;
 import com.stablebridge.indexer.domain.service.WalletCommandHandler.WalletAddressTuple;
 import org.junit.jupiter.api.DisplayName;
@@ -19,18 +17,21 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
+import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.DEFAULT_ADDRESS;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.DEFAULT_LABEL;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.aWalletAddress;
+import static com.stablebridge.indexer.testutil.WalletAddressFixtures.aWalletAddressResponse;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(WalletController.class)
@@ -43,7 +44,8 @@ class WalletControllerTest {
     private static final String API_KEY = "change-me";
     private static final String API_KEY_HEADER = "X-API-Key";
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Autowired
     private MockMvc mockMvc;
@@ -61,33 +63,36 @@ class WalletControllerTest {
         @Test
         @DisplayName("returns 201 Created when wallet is added with valid API key")
         void returnsCreatedWhenWalletAdded() throws Exception {
-            WalletAddressRequest request = new WalletAddressRequest(
+            var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
                     com.stablebridge.indexer.api.NetworkType.EVM,
                     DEFAULT_LABEL);
-            WalletAddress savedWallet = aWalletAddress().build();
+            var savedWallet = aWalletAddress().build();
+            var expectedResponse = aWalletAddressResponse();
 
             given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
-                    .willReturn(NetworkType.EVM);
-            given(walletCommandHandler.addWallet(DEFAULT_ADDRESS, NetworkType.EVM, DEFAULT_LABEL))
+                    .willReturn(EVM);
+            given(walletCommandHandler.addWallet(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL))
                     .willReturn(savedWallet);
             given(mapper.toResponse(savedWallet))
-                    .willReturn(com.stablebridge.indexer.testutil.WalletAddressFixtures
-                            .aWalletAddressResponse());
+                    .willReturn(expectedResponse);
 
-            mockMvc.perform(post("/api/v1/wallets")
+            var mvcResult = mockMvc.perform(post("/api/v1/wallets")
                             .header(API_KEY_HEADER, API_KEY)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.address").value(DEFAULT_ADDRESS))
-                    .andExpect(jsonPath("$.networkType").value("EVM"));
+                    .andReturn();
+
+            var actual = objectMapper.readValue(
+                    mvcResult.getResponse().getContentAsString(), WalletAddressResponse.class);
+            assertThat(actual).usingRecursiveComparison().isEqualTo(expectedResponse);
         }
 
         @Test
         @DisplayName("returns 401 Unauthorized when API key is missing")
         void returnsUnauthorizedWithoutApiKey() throws Exception {
-            WalletAddressRequest request = new WalletAddressRequest(
+            var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
                     com.stablebridge.indexer.api.NetworkType.EVM,
                     DEFAULT_LABEL);
@@ -101,7 +106,7 @@ class WalletControllerTest {
         @Test
         @DisplayName("returns 400 Bad Request when address is blank")
         void returnsBadRequestWhenAddressBlank() throws Exception {
-            WalletAddressRequest request = new WalletAddressRequest(
+            var request = new WalletAddressRequest(
                     "",
                     com.stablebridge.indexer.api.NetworkType.EVM,
                     DEFAULT_LABEL);
@@ -116,7 +121,7 @@ class WalletControllerTest {
         @Test
         @DisplayName("returns 400 Bad Request when networkType is null")
         void returnsBadRequestWhenNetworkTypeNull() throws Exception {
-            String requestJson = """
+            var requestJson = """
                     {"address": "%s", "label": "%s"}
                     """.formatted(DEFAULT_ADDRESS, DEFAULT_LABEL);
 
@@ -135,34 +140,39 @@ class WalletControllerTest {
         @Test
         @DisplayName("returns 201 Created when batch wallets are added with valid API key")
         void returnsCreatedWhenBatchAdded() throws Exception {
-            WalletAddressRequest request = new WalletAddressRequest(
+            var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
                     com.stablebridge.indexer.api.NetworkType.EVM,
                     DEFAULT_LABEL);
-            WalletAddress savedWallet = aWalletAddress().build();
-            List<WalletAddressTuple> expectedTuples = List.of(
-                    new WalletAddressTuple(DEFAULT_ADDRESS, NetworkType.EVM, DEFAULT_LABEL));
+            var savedWallet = aWalletAddress().build();
+            var expectedResponse = aWalletAddressResponse();
+            var expectedTuples = List.of(
+                    new WalletAddressTuple(DEFAULT_ADDRESS, EVM, DEFAULT_LABEL));
 
             given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
-                    .willReturn(NetworkType.EVM);
+                    .willReturn(EVM);
             given(walletCommandHandler.addWalletsBatch(expectedTuples))
                     .willReturn(List.of(savedWallet));
             given(mapper.toResponse(savedWallet))
-                    .willReturn(com.stablebridge.indexer.testutil.WalletAddressFixtures
-                            .aWalletAddressResponse());
+                    .willReturn(expectedResponse);
 
-            mockMvc.perform(post("/api/v1/wallets/batch")
+            var mvcResult = mockMvc.perform(post("/api/v1/wallets/batch")
                             .header(API_KEY_HEADER, API_KEY)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(List.of(request))))
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$[0].address").value(DEFAULT_ADDRESS));
+                    .andReturn();
+
+            var actualList = objectMapper.readValue(
+                    mvcResult.getResponse().getContentAsString(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, WalletAddressResponse.class));
+            assertThat(actualList).usingRecursiveComparison().isEqualTo(List.of(expectedResponse));
         }
 
         @Test
         @DisplayName("returns 401 Unauthorized when API key is missing")
         void returnsUnauthorizedWithoutApiKey() throws Exception {
-            WalletAddressRequest request = new WalletAddressRequest(
+            var request = new WalletAddressRequest(
                     DEFAULT_ADDRESS,
                     com.stablebridge.indexer.api.NetworkType.EVM,
                     DEFAULT_LABEL);
@@ -181,22 +191,26 @@ class WalletControllerTest {
         @Test
         @DisplayName("returns 200 OK with wallets for the given network type")
         void returnsWalletsForNetworkType() throws Exception {
-            WalletAddress wallet = aWalletAddress().build();
+            var wallet = aWalletAddress().build();
+            var expectedResponse = aWalletAddressResponse();
 
             given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
-                    .willReturn(NetworkType.EVM);
-            given(walletCommandHandler.listWallets(NetworkType.EVM))
+                    .willReturn(EVM);
+            given(walletCommandHandler.listWallets(EVM))
                     .willReturn(List.of(wallet));
             given(mapper.toResponse(wallet))
-                    .willReturn(com.stablebridge.indexer.testutil.WalletAddressFixtures
-                            .aWalletAddressResponse());
+                    .willReturn(expectedResponse);
 
-            mockMvc.perform(get("/api/v1/wallets")
+            var mvcResult = mockMvc.perform(get("/api/v1/wallets")
                             .header(API_KEY_HEADER, API_KEY)
                             .param("networkType", "EVM"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$[0].address").value(DEFAULT_ADDRESS))
-                    .andExpect(jsonPath("$[0].networkType").value("EVM"));
+                    .andReturn();
+
+            var actualList = objectMapper.readValue(
+                    mvcResult.getResponse().getContentAsString(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, WalletAddressResponse.class));
+            assertThat(actualList).usingRecursiveComparison().isEqualTo(List.of(expectedResponse));
         }
 
         @Test
@@ -224,7 +238,7 @@ class WalletControllerTest {
         @DisplayName("returns 204 No Content when wallet is removed with valid API key")
         void returnsNoContentWhenWalletRemoved() throws Exception {
             given(mapper.toDomain(com.stablebridge.indexer.api.NetworkType.EVM))
-                    .willReturn(NetworkType.EVM);
+                    .willReturn(EVM);
 
             mockMvc.perform(delete("/api/v1/wallets/{address}", DEFAULT_ADDRESS)
                             .header(API_KEY_HEADER, API_KEY)
@@ -232,7 +246,7 @@ class WalletControllerTest {
                     .andExpect(status().isNoContent());
 
             then(walletCommandHandler).should()
-                    .removeWallet(DEFAULT_ADDRESS, NetworkType.EVM);
+                    .removeWallet(DEFAULT_ADDRESS, EVM);
         }
 
         @Test
