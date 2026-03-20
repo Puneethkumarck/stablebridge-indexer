@@ -6,6 +6,7 @@
 ![Kafka](https://img.shields.io/badge/Kafka-streaming-orange)
 ![Redis](https://img.shields.io/badge/Redis-Bloom%20Filter-red)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Puneethkumarck/stablebridge-indexer)
 
 # stablebridge-indexer
 
@@ -87,6 +88,102 @@ application/
 | `stablebridge-indexer-api` | Shared DTOs: TransferEvent, NetworkType, WalletAddressRequest/Response |
 | `stablebridge-indexer-client` | Feign client for wallet management API |
 | `stablebridge-indexer` | Main application — domain, infrastructure, application layers |
+
+---
+
+## :gear: How It Works
+
+### Block Processing Pipeline
+
+Every block goes through a five-stage pipeline inside `BaseWorker.processBlock()`:
+
+```
+1. Fetch     EvmRpcClient fetches a finalized block + transaction receipts
+                 via JSON-RPC batch (150 receipts → 3 HTTP calls)
+
+2. Parse     EvmErc20TransferParser scans receipt logs for Transfer events
+                 matching whitelisted token contracts (USDC, USDT, DAI, ...)
+                 Decodes topic[1]=from, topic[2]=to, data=rawAmount
+
+3. Match     For each parsed transfer:
+                 a) RedisBloomAddressFilter.mightContain(toAddress)  → sub-ms
+                 b) WalletAddressRepository.existsByAddress(toAddress) → DB confirm
+                 Both must pass → zero false positives
+
+4. Publish   KafkaTransferEventPublisher sends matched events
+                 Topic: transfer.events.<chainId>, Key: toAddress
+                 ⚠️ This happens BEFORE step 5 (at-least-once guarantee)
+
+5. Save      RedisBlockProgressStore.saveLastProcessedBlock()
+                 If the app crashes between step 4 and 5, the block is
+                 reprocessed on restart — duplicates are safe, missed deposits are not
+```
+
+### RPC Resilience Stack
+
+Every RPC call passes through three layers of protection:
+
+```
+RpcUrlManager              Round-robin across URLs, 3-failure threshold marks
+                           URL unhealthy, 60s health probe for recovery
+
+ResilientEvmRpcClient      Resilience4j decorators applied in order:
+                           RateLimiter → Retry (exponential backoff) → CircuitBreaker
+
+EvmRpcClient               JDK HttpClient (HTTP/1.1) with virtual thread executor,
+                           JSON-RPC batch requests, configurable timeout
+```
+
+If all RPCs fail, the circuit breaker opens and the worker transitions to **PARKED** state. A background health probe runs every 60 seconds — when an RPC recovers, the worker auto-resumes to **RUNNING**.
+
+### Worker Engine
+
+Three workers run concurrently per chain on virtual threads:
+
+| Worker | Job | Frequency |
+|--------|-----|-----------|
+| **RegularWorker** | Polls the chain tip for new finalized blocks, processes them sequentially | `pollInterval` (12s Ethereum, 2s Base) |
+| **CatchupWorker** | Backfills gaps between current progress and chain tip, splits into parallel chunks | Continuous until caught up |
+| **RescanWorker** | Retries failed blocks from Redis sorted set with exponential backoff (1s → 16s, max 5 attempts) | Every 5 minutes |
+
+The `IndexerOrchestrator` bootstraps everything on startup:
+1. Loads all registered wallet addresses from PostgreSQL into the Bloom filter
+2. Creates a virtual thread executor (`Executors.newVirtualThreadPerTaskExecutor()`)
+3. Launches 3 workers per enabled chain
+
+### Bloom + DB Double-Check
+
+This is the core matching strategy that makes the system both fast and financially correct:
+
+```
+                    ┌─────────────────────┐
+  Transfer found    │  Redis Bloom Filter  │  Sub-millisecond, 0.1% false positive rate
+  in block logs  ──►│  BF.EXISTS key addr  │  Per-network-type: indexer:bloom:EVM, :SOLANA, :BITCOIN
+                    └────────┬────────────┘
+                             │ might contain?
+                    ┌────────▼────────────┐
+                    │  PostgreSQL Confirm  │  Zero false positives
+                    │  SELECT EXISTS(...)  │  wallet_addresses table
+                    └────────┬────────────┘
+                             │ confirmed?
+                    ┌────────▼────────────┐
+                    │   Kafka Publish     │  topic: transfer.events.<chainId>
+                    │   key: toAddress    │  At-least-once delivery
+                    └─────────────────────┘
+```
+
+The Bloom filter eliminates 99.9%+ of non-matching transfers in sub-millisecond time. Only the rare Bloom hits reach the database — this keeps PostgreSQL load minimal even at millions of transfers per day.
+
+### ERC-20 Transfer Parsing
+
+The `EvmErc20TransferParser` extracts token transfers from transaction receipt logs:
+
+1. **Filter**: Only receipts with `status=1` (successful) and logs matching the `Transfer(address,address,uint256)` event signature
+2. **Whitelist**: Only logs from configured token contract addresses (case-insensitive match)
+3. **Decode**: `topic[1]` = sender (last 20 bytes), `topic[2]` = recipient, `log.data` = raw amount
+4. **Normalize**: Both `rawAmount` (on-chain integer) and `amount` (human-readable via `rawAmount / 10^decimals`) are preserved
+
+Native transfers (ETH, SOL, BTC) follow similar parsing but are disabled by default — enable with `index-native-transfers: true` per chain.
 
 ---
 
@@ -402,17 +499,6 @@ Events are published to per-chain topics with the pattern `transfer.events.<netw
 | API key auth | `X-API-Key` header | Internal service-to-service; OAuth2 deferred |
 
 For the full set of 21 architecture decisions, see [`docs/architecture-decisions.md`](docs/architecture-decisions.md).
-
----
-
-## :books: Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture Decisions](docs/architecture-decisions.md) | 21 ADRs covering all major design choices |
-| [Project Specification](docs/project-spec.md) | Detailed project specification and requirements |
-| [Payment Lifecycle](docs/payment-lifecycle.md) | Business context for deposit detection |
-| [Indexer Explained Simply](docs/indexer-explained-simply.md) | Non-technical explanation of how the indexer works |
 
 ---
 
