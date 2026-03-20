@@ -1,9 +1,8 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,22 +20,20 @@ import java.util.stream.IntStream;
 class EvmRpcClient {
 
     private static final String CONTENT_TYPE = "application/json";
+    private static final JsonMapper JSON_MAPPER = JsonMapper.builder().build();
 
     private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
     private final URI rpcUri;
     private final int batchSize;
     private final boolean useBlockReceipts;
     private final Duration timeout;
     private final AtomicLong requestIdCounter = new AtomicLong(1);
 
-    EvmRpcClient(String rpcUrl, int batchSize, boolean useBlockReceipts,
-                 Duration timeout, ObjectMapper objectMapper) {
+    EvmRpcClient(String rpcUrl, int batchSize, boolean useBlockReceipts, Duration timeout) {
         this.rpcUri = URI.create(rpcUrl);
         this.batchSize = batchSize;
         this.useBlockReceipts = useBlockReceipts;
         this.timeout = timeout;
-        this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1)
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
@@ -77,17 +74,16 @@ class EvmRpcClient {
         var body = serializeRequest(request);
         var httpResponse = executeHttpPost(body, "eth_getBlockReceipts");
 
+        final JsonRpcResponse<List<EvmReceipt>> rpcResponse;
         try {
-            var rpcResponse = objectMapper.readValue(
+            rpcResponse = JSON_MAPPER.readValue(
                     httpResponse,
                     new TypeReference<JsonRpcResponse<List<EvmReceipt>>>() {});
-            validateResponse(rpcResponse, "eth_getBlockReceipts");
-            return rpcResponse.result() != null ? rpcResponse.result() : List.of();
-        } catch (EvmRpcException e) {
-            throw e;
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw EvmRpcException.parseError("eth_getBlockReceipts", e);
         }
+        validateResponse(rpcResponse, "eth_getBlockReceipts");
+        return rpcResponse.result() != null ? rpcResponse.result() : List.of();
     }
 
     boolean supportsBlockReceipts() {
@@ -102,44 +98,42 @@ class EvmRpcClient {
         var body = serializeRequest(requests);
         var httpResponse = executeHttpPost(body, "eth_getTransactionReceipt[batch]");
 
+        final List<JsonRpcResponse<EvmReceipt>> responses;
         try {
-            var responses = objectMapper.readValue(
+            responses = JSON_MAPPER.readValue(
                     httpResponse,
                     new TypeReference<List<JsonRpcResponse<EvmReceipt>>>() {});
-
-            return responses.stream()
-                    .peek(response -> validateResponse(response, "eth_getTransactionReceipt"))
-                    .map(JsonRpcResponse::result)
-                    .filter(Objects::nonNull)
-                    .toList();
-        } catch (EvmRpcException e) {
-            throw e;
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             throw EvmRpcException.parseError("eth_getTransactionReceipt[batch]", e);
         }
+
+        return responses.stream()
+                .peek(response -> validateResponse(response, "eth_getTransactionReceipt"))
+                .map(JsonRpcResponse::result)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private <T> T sendSingleRequest(JsonRpcRequest request, Class<T> resultType) {
         var body = serializeRequest(request);
         var httpResponse = executeHttpPost(body, request.method());
 
+        var typeRef = JSON_MAPPER.getTypeFactory()
+                .constructParametricType(JsonRpcResponse.class, resultType);
+        final JsonRpcResponse<T> rpcResponse;
         try {
-            var typeRef = objectMapper.getTypeFactory()
-                    .constructParametricType(JsonRpcResponse.class, resultType);
-            JsonRpcResponse<T> rpcResponse = objectMapper.readValue(httpResponse, typeRef);
-            validateResponse(rpcResponse, request.method());
-            return rpcResponse.result();
-        } catch (EvmRpcException e) {
-            throw e;
-        } catch (JsonProcessingException e) {
+            rpcResponse = JSON_MAPPER.readValue(httpResponse, typeRef);
+        } catch (Exception e) {
             throw EvmRpcException.parseError(request.method(), e);
         }
+        validateResponse(rpcResponse, request.method());
+        return rpcResponse.result();
     }
 
     private String serializeRequest(Object request) {
         try {
-            return objectMapper.writeValueAsString(request);
-        } catch (JsonProcessingException e) {
+            return JSON_MAPPER.writeValueAsString(request);
+        } catch (Exception e) {
             throw EvmRpcException.parseError("serialize", e);
         }
     }

@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.infrastructure.chain.evm;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
@@ -19,7 +18,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("EvmChainIndexerFactory")
 class EvmChainIndexerFactoryTest {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final MeterRegistry METER_REGISTRY = new SimpleMeterRegistry();
 
     @Nested
@@ -33,7 +31,7 @@ class EvmChainIndexerFactoryTest {
             var config = anEvmChainConfig("ethereum_mainnet", true, 0);
 
             // when
-            var indexer = EvmChainIndexerFactory.create(config, OBJECT_MAPPER, METER_REGISTRY);
+            var indexer = EvmChainIndexerFactory.create(config, METER_REGISTRY);
 
             // then
             assertThat(indexer.getChainId()).isEqualTo(ETHEREUM);
@@ -46,7 +44,7 @@ class EvmChainIndexerFactoryTest {
             var config = anEvmChainConfig("polygon_mainnet", false, 128);
 
             // when
-            var indexer = EvmChainIndexerFactory.create(config, OBJECT_MAPPER, METER_REGISTRY);
+            var indexer = EvmChainIndexerFactory.create(config, METER_REGISTRY);
 
             // then
             assertThat(indexer.getChainId()).isEqualTo(POLYGON);
@@ -59,7 +57,7 @@ class EvmChainIndexerFactoryTest {
             var config = anEvmChainConfig("base_mainnet", false, 10);
 
             // when
-            var indexer = EvmChainIndexerFactory.create(config, OBJECT_MAPPER, METER_REGISTRY);
+            var indexer = EvmChainIndexerFactory.create(config, METER_REGISTRY);
 
             // then
             assertThat(indexer.getChainId()).isEqualTo(BASE);
@@ -80,7 +78,7 @@ class EvmChainIndexerFactoryTest {
             var config = anEvmChainConfigWithTokens("ethereum_mainnet", tokenContracts);
 
             // when
-            var indexer = EvmChainIndexerFactory.create(config, OBJECT_MAPPER, METER_REGISTRY);
+            var indexer = EvmChainIndexerFactory.create(config, METER_REGISTRY);
 
             // then
             assertThat(indexer).isNotNull();
