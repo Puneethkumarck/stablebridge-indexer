@@ -365,12 +365,78 @@ All logs use structured JSON format with 10 enriched MDC fields for audit trails
 
 ---
 
+## :hammer_and_wrench: Make Commands
+
+A `Makefile` wraps all common operations:
+
+### Build & Test
+
+```bash
+make build              # Compile + Spotless + all tests
+make test               # Unit tests only
+make integration-test   # Integration tests (requires Docker services)
+make clean              # Clean build artifacts
+```
+
+### Run
+
+```bash
+make run                # Run with default profile (mainnet)
+make run-testnet        # Run with testnet profile (Sepolia, Base Sepolia, Solana Devnet)
+```
+
+### Infrastructure
+
+```bash
+make infra-up           # Start PostgreSQL, Redis, Redpanda, Prometheus, Grafana
+make infra-down         # Stop all containers
+make infra-clean        # Stop + delete all volumes
+make infra-status       # Show container status
+make infra-logs         # Tail container logs
+```
+
+### Terraform (alternative to Docker Compose)
+
+```bash
+make terraform-init     # Initialize Terraform Docker provider
+make terraform-up       # Provision all containers via Terraform
+make terraform-down     # Destroy Terraform-managed containers
+```
+
+### Inspection
+
+```bash
+make check-health       # Actuator health check
+make check-status       # All chain statuses
+make check-redis        # Block progress + Bloom filter info
+make check-kafka        # List Kafka topics
+```
+
+### Testing & Smoke
+
+```bash
+make smoke-test         # Run smoke test script against running indexer
+make api-test           # Run Newman/Postman API tests
+make register-wallet ADDR=0x... TYPE=EVM   # Register a test wallet
+```
+
+### Docker Image
+
+```bash
+make docker-build       # Build production image via Jib (eclipse-temurin:25-jre)
+```
+
+Run `make help` to see all available targets.
+
+---
+
 ## :whale: Docker
 
 ### Development Infrastructure
 
 ```bash
-docker compose up -d
+make infra-up
+# or: docker compose up -d
 ```
 
 | Service | Port | Description |
@@ -384,10 +450,9 @@ docker compose up -d
 
 ### Production Image
 
-Build a production Docker image with Jib (no Docker daemon required):
-
 ```bash
-./gradlew :stablebridge-indexer:jibDockerBuild
+make docker-build
+# or: ./gradlew :stablebridge-indexer:jibDockerBuild
 ```
 
 Image: `stablebridge/indexer` based on `eclipse-temurin:25-jre`.
@@ -399,15 +464,32 @@ Image: `stablebridge/indexer` based on `eclipse-temurin:25-jre`.
 The project has **414 tests** across **44 test files**, organized by category:
 
 ```bash
-# Run all tests
-./gradlew test
-
-# Run integration tests (requires Docker services)
-./gradlew integrationTest
-
-# Run all checks (Spotless + compile + tests)
-./gradlew build
+make build              # Full build (Spotless + compile + all tests)
+make test               # Unit tests only
+make integration-test   # Integration tests (requires Docker services)
 ```
+
+### API Tests (Newman/Postman)
+
+A Postman collection at `postman/` covers all API endpoints with assertions:
+
+```bash
+# Install Newman
+npm install -g newman
+
+# Run against local instance
+make api-test
+# or: newman run postman/stablebridge-indexer.postman_collection.json \
+#       -e postman/local.postman_environment.json
+
+# Run against testnet instance
+newman run postman/stablebridge-indexer.postman_collection.json \
+  -e postman/testnet.postman_environment.json
+```
+
+**Test coverage**: Authentication (401 for missing/wrong key), wallet CRUD (register, batch, list, delete, duplicate handling), chain status (all chains, single chain, unknown chain 404), Bloom filter status, Prometheus metrics, health check.
+
+You can also import `postman/stablebridge-indexer.postman_collection.json` directly into Postman for interactive testing.
 
 ### Testing Stack
 

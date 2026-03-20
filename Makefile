@@ -1,6 +1,6 @@
 .PHONY: help build test integration-test clean run run-testnet \
        infra-up infra-down infra-status infra-logs \
-       smoke-test register-wallet check-status \
+       smoke-test api-test register-wallet check-status \
        docker-build terraform-init terraform-up terraform-down
 
 # ---------------------------------------------------------------------------
@@ -78,6 +78,17 @@ docker-build: ## Build production Docker image via Jib
 # ---------------------------------------------------------------------------
 smoke-test: ## Run smoke test against running indexer
 	./scripts/smoke-test.sh
+
+api-test: ## Run Newman/Postman API tests against running indexer
+	newman run postman/stablebridge-indexer.postman_collection.json \
+		-e postman/local.postman_environment.json \
+		--reporters cli,junit \
+		--reporter-junit-export build/reports/newman/results.xml
+
+api-test-testnet: ## Run Newman API tests against testnet instance
+	newman run postman/stablebridge-indexer.postman_collection.json \
+		-e postman/testnet.postman_environment.json \
+		--reporters cli
 
 register-wallet: ## Register a test wallet (usage: make register-wallet ADDR=0x... TYPE=EVM)
 	@curl -s -X POST http://localhost:8080/api/v1/wallets \
