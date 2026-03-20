@@ -16,12 +16,6 @@ import java.util.List;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
-/**
- * REST controller for indexer status endpoints.
- *
- * <p>Provides read-only views of chain indexing progress and bloom filter configuration.
- * These endpoints are intended for monitoring dashboards and operational tooling.
- */
 @RestController
 @RequestMapping("/api/v1/status")
 @RequiredArgsConstructor
@@ -30,23 +24,12 @@ public class StatusController {
     private final StatusQueryHandler statusQueryHandler;
     private final StatusControllerMapper mapper;
 
-    /**
-     * Returns the status of all configured chains.
-     *
-     * @return 200 OK with list of chain statuses
-     */
     @GetMapping
     public ResponseEntity<List<IndexerStatusResponse>> getAllChainStatuses() {
         var statuses = statusQueryHandler.getAllChainStatuses();
         return ResponseEntity.ok(mapper.toResponseList(statuses));
     }
 
-    /**
-     * Returns the status of a single chain by name.
-     *
-     * @param chainName the chain network identifier (e.g., {@code "ethereum_mainnet"})
-     * @return 200 OK with chain status, or 404 if chain is not configured
-     */
     @GetMapping("/{chainName}")
     public ResponseEntity<?> getChainStatus(@PathVariable String chainName) {
         var status = statusQueryHandler.getChainStatus(chainName);
@@ -62,11 +45,6 @@ public class StatusController {
         return ResponseEntity.ok(mapper.toResponse(status.get()));
     }
 
-    /**
-     * Returns the bloom filter status and configuration.
-     *
-     * @return 200 OK with bloom filter status
-     */
     @GetMapping("/bloom")
     public ResponseEntity<BloomStatusResponse> getBloomStatus() {
         var bloomStatus = statusQueryHandler.getBloomStatus();

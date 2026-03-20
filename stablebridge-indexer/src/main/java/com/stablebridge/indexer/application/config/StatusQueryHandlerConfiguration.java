@@ -14,10 +14,6 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Configuration that exposes domain-friendly beans derived from application-layer properties,
- * respecting the hexagonal boundary between domain and application layers.
- */
 @Configuration
 class StatusQueryHandlerConfiguration {
 

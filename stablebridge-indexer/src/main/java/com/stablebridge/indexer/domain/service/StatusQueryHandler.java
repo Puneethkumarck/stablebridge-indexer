@@ -5,7 +5,6 @@ import com.stablebridge.indexer.domain.model.ChainConfiguration;
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.model.ChainStatus;
 import com.stablebridge.indexer.domain.model.NetworkType;
-import com.stablebridge.indexer.domain.model.WorkerState;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,13 +17,6 @@ import java.util.Optional;
 
 import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
 
-/**
- * Domain query handler for indexer status reporting.
- *
- * <p>Provides read-only views of chain indexing progress and bloom filter configuration.
- * Workers are not yet implemented (Phase 4), so worker state defaults to {@link WorkerState#STOPPED}
- * and finalized block information is not yet available.
- */
 @Service
 @RequiredArgsConstructor
 public class StatusQueryHandler {
@@ -33,23 +25,12 @@ public class StatusQueryHandler {
     private final Map<String, ChainConfiguration> chainConfigurations;
     private final BloomStatus bloomStatus;
 
-    /**
-     * Returns the status of all configured chains.
-     *
-     * @return list of chain statuses, one per configured chain
-     */
     public List<ChainStatus> getAllChainStatuses() {
         return chainConfigurations.entrySet().stream()
                 .map(entry -> buildChainStatus(entry.getKey(), entry.getValue()))
                 .toList();
     }
 
-    /**
-     * Returns the status of a single chain by name.
-     *
-     * @param chainName the chain network identifier (e.g., {@code "ethereum_mainnet"})
-     * @return the chain status, or empty if the chain is not configured
-     */
     public Optional<ChainStatus> getChainStatus(String chainName) {
         var config = chainConfigurations.get(chainName);
         if (config == null) {
@@ -58,11 +39,6 @@ public class StatusQueryHandler {
         return Optional.of(buildChainStatus(chainName, config));
     }
 
-    /**
-     * Returns the bloom filter status and configuration.
-     *
-     * @return bloom filter status with backend, sizing, and covered network types
-     */
     public BloomStatus getBloomStatus() {
         return bloomStatus;
     }
