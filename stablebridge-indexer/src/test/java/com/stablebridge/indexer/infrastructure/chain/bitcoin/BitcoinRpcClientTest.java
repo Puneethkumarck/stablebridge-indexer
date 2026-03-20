@@ -484,8 +484,20 @@ class BitcoinRpcClientTest {
             var block = client.getBlock("000000legacy");
 
             // then
-            var vout = block.tx().getFirst().vout().getFirst();
-            assertThat(vout.scriptPubKey().addresses()).containsExactly("1addr1", "1addr2");
+            var expected = BtcVout.builder()
+                    .value(new BigDecimal("1.00000000"))
+                    .n(0)
+                    .scriptPubKey(BtcScriptPubKey.builder()
+                            .asm("multisig")
+                            .hex("5221...")
+                            .type("multisig")
+                            .addresses(List.of("1addr1", "1addr2"))
+                            .build())
+                    .build();
+            assertThat(block.tx().getFirst().vout().getFirst())
+                    .usingRecursiveComparison()
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                    .isEqualTo(expected);
         }
 
         @Test

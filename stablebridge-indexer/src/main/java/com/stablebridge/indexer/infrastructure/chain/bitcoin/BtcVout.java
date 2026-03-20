@@ -19,10 +19,9 @@ record BtcVout(
         if (scriptPubKey == null) {
             return List.of();
         }
-        return Stream.of(
+        return Stream.concat(
                         Optional.ofNullable(scriptPubKey.address()).stream(),
                         Optional.ofNullable(scriptPubKey.addresses()).stream().flatMap(List::stream))
-                .flatMap(s -> s)
                 .distinct()
                 .toList();
     }
