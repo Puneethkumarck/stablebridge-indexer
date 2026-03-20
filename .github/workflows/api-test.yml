@@ -1,0 +1,116 @@
+name: API Tests (Newman)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'postman/**'
+      - 'stablebridge-indexer/src/main/java/**/controller/**'
+      - 'stablebridge-indexer/src/main/java/**/security/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'postman/**'
+      - 'stablebridge-indexer/src/main/java/**/controller/**'
+      - 'stablebridge-indexer/src/main/java/**/security/**'
+
+permissions:
+  contents: read
+
+jobs:
+  api-test:
+    name: Newman API Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: indexer
+          POSTGRES_USER: indexer
+          POSTGRES_PASSWORD: indexer
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis/redis-stack:latest
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redpanda:
+        image: redpandadata/redpanda:v24.3.1
+        ports:
+          - 19092:19092
+        options: >-
+          --health-cmd "rpk cluster health --api-urls localhost:9644"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25-ea'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Build application
+        run: ./gradlew :stablebridge-indexer:build -x test -x integrationTest -x spotlessCheck
+
+      - name: Start application
+        run: |
+          ./gradlew :stablebridge-indexer:bootRun &
+          echo "Waiting for application to start..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; then
+              echo "Application is ready"
+              break
+            fi
+            sleep 2
+          done
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/indexer
+          SPRING_DATASOURCE_USERNAME: indexer
+          SPRING_DATASOURCE_PASSWORD: indexer
+          SPRING_DATA_REDIS_HOST: localhost
+          SPRING_DATA_REDIS_PORT: 6379
+          KAFKA_BOOTSTRAP_SERVERS: localhost:19092
+          INDEXER_API_KEY: test-api-key-ci
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Newman API tests
+        run: |
+          newman run postman/stablebridge-indexer.postman_collection.json \
+            -e postman/local.postman_environment.json \
+            --env-var "apiKey=test-api-key-ci" \
+            --reporters cli,junit,htmlextra \
+            --reporter-junit-export build/reports/newman/results.xml \
+            --reporter-htmlextra-export build/reports/newman/report.html
+
+      - name: Upload Newman reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-reports
+          path: build/reports/newman/
+          retention-days: 7

@@ -1,0 +1,648 @@
+{
+  "info": {
+    "name": "StableBridge Indexer",
+    "description": "API test collection for StableBridge Indexer.\n\nCovers wallet management, status, bloom filter, and authentication.\n\nRun with Newman:\n```\nnewman run postman/stablebridge-indexer.postman_collection.json \\\n  -e postman/local.postman_environment.json\n```",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "mgmtUrl", "value": "http://localhost:8081" },
+    { "key": "apiKey", "value": "change-me" },
+    { "key": "testAddress", "value": "" },
+    { "key": "testAddressBatch1", "value": "" },
+    { "key": "testAddressBatch2", "value": "" }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health & Actuator",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Health status is UP', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('UP');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{mgmtUrl}}/actuator/health"
+          }
+        },
+        {
+          "name": "Prometheus Metrics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains indexer metrics', () => {",
+                  "  pm.expect(pm.response.text()).to.include('indexer_');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{mgmtUrl}}/actuator/prometheus"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "No API Key - 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status"
+          }
+        },
+        {
+          "name": "Wrong API Key - 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status",
+            "header": [
+              { "key": "X-API-Key", "value": "wrong-key-12345" }
+            ]
+          }
+        },
+        {
+          "name": "Valid API Key - 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chain Status",
+      "item": [
+        {
+          "name": "Get All Chain Statuses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is array', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "});",
+                  "pm.test('Each chain has required fields', () => {",
+                  "  const body = pm.response.json();",
+                  "  body.forEach(chain => {",
+                  "    pm.expect(chain).to.have.property('chainId');",
+                  "    pm.expect(chain).to.have.property('networkType');",
+                  "    pm.expect(chain).to.have.property('workerState');",
+                  "    pm.expect(chain).to.have.property('enabled');",
+                  "  });",
+                  "});",
+                  "",
+                  "// Save first chain name for single chain status test",
+                  "const body = pm.response.json();",
+                  "if (body.length > 0) {",
+                  "  pm.collectionVariables.set('firstChainId', body[0].chainId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status"
+          }
+        },
+        {
+          "name": "Get Single Chain Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has chain fields', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('chainId');",
+                  "  pm.expect(body).to.have.property('workerState');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status/{{firstChainId}}"
+          }
+        },
+        {
+          "name": "Get Unknown Chain - 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Error response has message', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('message');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status/nonexistent_chain"
+          }
+        },
+        {
+          "name": "Get Bloom Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has bloom fields', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('backend');",
+                  "  pm.expect(body).to.have.property('expectedInsertions');",
+                  "  pm.expect(body).to.have.property('errorRate');",
+                  "  pm.expect(body).to.have.property('networkTypes');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/status/bloom"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallet Management",
+      "item": [
+        {
+          "name": "Register EVM Wallet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate a unique test address",
+                  "const hex = Array.from({length: 40}, () => Math.floor(Math.random() * 16).toString(16)).join('');",
+                  "const addr = '0x' + hex;",
+                  "pm.collectionVariables.set('testAddress', addr);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has wallet fields', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('id');",
+                  "  pm.expect(body).to.have.property('address');",
+                  "  pm.expect(body).to.have.property('networkType');",
+                  "  pm.expect(body.networkType).to.eql('EVM');",
+                  "  pm.expect(body).to.have.property('createdAt');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"{{testAddress}}\",\n  \"networkType\": \"EVM\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Duplicate Wallet - 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"{{testAddress}}\",\n  \"networkType\": \"EVM\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Wallet - Missing Address - 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"\",\n  \"networkType\": \"EVM\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Batch Register Wallets",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const hex1 = Array.from({length: 40}, () => Math.floor(Math.random() * 16).toString(16)).join('');",
+                  "const hex2 = Array.from({length: 40}, () => Math.floor(Math.random() * 16).toString(16)).join('');",
+                  "pm.collectionVariables.set('testAddressBatch1', '0x' + hex1);",
+                  "pm.collectionVariables.set('testAddressBatch2', '0x' + hex2);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Response is array of 2', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "  pm.expect(body).to.have.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets/batch",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\"address\": \"{{testAddressBatch1}}\", \"networkType\": \"EVM\"},\n  {\"address\": \"{{testAddressBatch2}}\", \"networkType\": \"EVM\"}\n]"
+            }
+          }
+        },
+        {
+          "name": "List EVM Wallets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is array', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "});",
+                  "pm.test('Contains at least 3 wallets (1 single + 2 batch)', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.length).to.be.at.least(3);",
+                  "});",
+                  "pm.test('All wallets are EVM type', () => {",
+                  "  const body = pm.response.json();",
+                  "  body.forEach(w => pm.expect(w.networkType).to.eql('EVM'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets?networkType=EVM",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets"],
+              "query": [{ "key": "networkType", "value": "EVM" }]
+            }
+          }
+        },
+        {
+          "name": "Rebuild Bloom Filter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets/bloom/rebuild"
+          }
+        },
+        {
+          "name": "Delete Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets/{{testAddress}}?networkType=EVM",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets", "{{testAddress}}"],
+              "query": [{ "key": "networkType", "value": "EVM" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Batch Wallet 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets/{{testAddressBatch1}}?networkType=EVM",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets", "{{testAddressBatch1}}"],
+              "query": [{ "key": "networkType", "value": "EVM" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Batch Wallet 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets/{{testAddressBatch2}}?networkType=EVM",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets", "{{testAddressBatch2}}"],
+              "query": [{ "key": "networkType", "value": "EVM" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Solana Wallet",
+      "item": [
+        {
+          "name": "Register Solana Wallet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate a base58-like test address",
+                  "const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';",
+                  "const addr = Array.from({length: 44}, () => chars[Math.floor(Math.random() * chars.length)]).join('');",
+                  "pm.collectionVariables.set('solanaTestAddress', addr);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Network type is SOLANA', () => {",
+                  "  pm.expect(pm.response.json().networkType).to.eql('SOLANA');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"{{solanaTestAddress}}\",\n  \"networkType\": \"SOLANA\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Solana Wallets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains Solana wallets', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.be.an('array');",
+                  "  pm.expect(body.length).to.be.at.least(1);",
+                  "  body.forEach(w => pm.expect(w.networkType).to.eql('SOLANA'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets?networkType=SOLANA",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets"],
+              "query": [{ "key": "networkType", "value": "SOLANA" }]
+            }
+          }
+        },
+        {
+          "name": "Delete Solana Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets/{{solanaTestAddress}}?networkType=SOLANA",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets", "{{solanaTestAddress}}"],
+              "query": [{ "key": "networkType", "value": "SOLANA" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bitcoin Wallet",
+      "item": [
+        {
+          "name": "Register Bitcoin Wallet",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';",
+                  "const addr = 'tb1q' + Array.from({length: 38}, () => chars[Math.floor(Math.random() * chars.length)]).join('');",
+                  "pm.collectionVariables.set('bitcoinTestAddress', addr);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Network type is BITCOIN', () => {",
+                  "  pm.expect(pm.response.json().networkType).to.eql('BITCOIN');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/v1/wallets",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address\": \"{{bitcoinTestAddress}}\",\n  \"networkType\": \"BITCOIN\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Bitcoin Wallet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/wallets/{{bitcoinTestAddress}}?networkType=BITCOIN",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "wallets", "{{bitcoinTestAddress}}"],
+              "query": [{ "key": "networkType", "value": "BITCOIN" }]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

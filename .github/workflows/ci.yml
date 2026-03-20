@@ -67,7 +67,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: multichain_indexer
+          POSTGRES_DB: indexer
           POSTGRES_USER: indexer
           POSTGRES_PASSWORD: indexer
         ports:
@@ -105,7 +105,7 @@ jobs:
       - name: Run integration tests
         run: ./gradlew integrationTest
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/multichain_indexer
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/indexer
           SPRING_DATASOURCE_USERNAME: indexer
           SPRING_DATASOURCE_PASSWORD: indexer
           SPRING_DATA_REDIS_HOST: localhost
