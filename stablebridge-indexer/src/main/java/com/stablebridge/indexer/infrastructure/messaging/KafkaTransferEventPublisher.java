@@ -1,6 +1,5 @@
 package com.stablebridge.indexer.infrastructure.messaging;
 
-import com.stablebridge.indexer.api.TransferEvent;
 import com.stablebridge.indexer.domain.event.TransferDetectedEvent;
 import com.stablebridge.indexer.domain.port.TransferEventPublisher;
 import io.micrometer.core.instrument.Counter;
@@ -30,7 +29,7 @@ class KafkaTransferEventPublisher implements TransferEventPublisher {
 
     private static final String TOPIC_PREFIX = "transfer.events.";
 
-    private final KafkaTemplate<String, TransferEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final TransferEventMapper transferEventMapper;
     private final MeterRegistry meterRegistry;
     private final ConcurrentHashMap<String, Counter> failureCounters = new ConcurrentHashMap<>();

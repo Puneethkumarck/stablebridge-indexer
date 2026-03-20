@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+indexer:
+  api:
+    key: test-api-key
+  bloom:
+    backend: redis
+    error-rate: 0.001
+    expected-insertions: 1000
+  chains: {}

@@ -120,6 +120,7 @@ dependencies {
     testFixturesImplementation("org.springframework.boot:spring-boot-starter-test")
     testFixturesImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
     testFixturesImplementation("org.testcontainers:postgresql:$testcontainersVersion")
+    testFixturesImplementation("org.testcontainers:kafka:$testcontainersVersion")
     testFixturesImplementation("org.testcontainers:junit-jupiter:$testcontainersVersion")
 
     // Test

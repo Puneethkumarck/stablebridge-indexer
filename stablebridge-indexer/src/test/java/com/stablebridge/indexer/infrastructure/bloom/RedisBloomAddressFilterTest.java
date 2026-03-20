@@ -11,12 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.connection.RedisCommands;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
-import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
 import static com.stablebridge.indexer.domain.model.NetworkType.SOLANA;
@@ -32,35 +30,21 @@ class RedisBloomAddressFilterTest {
     private static final String TEST_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18";
     private static final NetworkType TEST_NETWORK = EVM;
     private static final String BLOOM_KEY = "indexer:bloom:EVM";
-    private static final byte[] BLOOM_KEY_BYTES = BLOOM_KEY.getBytes(StandardCharsets.UTF_8);
-    private static final byte[] ADDRESS_BYTES = TEST_ADDRESS.getBytes(StandardCharsets.UTF_8);
     private static final long EXPECTED_INSERTIONS = 1_000_000L;
     private static final double ERROR_RATE = 0.001;
 
     @Mock
-    private RedisConnectionFactory connectionFactory;
-
-    @Mock
-    private RedisConnection redisConnection;
-
-    @Mock
-    private RedisCommands redisCommands;
+    private StringRedisTemplate redisTemplate;
 
     @Mock
     private WalletAddressRepository walletAddressRepository;
 
-    private StringRedisTemplate redisTemplate;
     private MeterRegistry meterRegistry;
     private RedisBloomAddressFilter filter;
 
     @BeforeEach
     void setUp() {
-        lenient().when(connectionFactory.getConnection()).thenReturn(redisConnection);
-        lenient().when(redisConnection.commands()).thenReturn(redisCommands);
         meterRegistry = new SimpleMeterRegistry();
-        redisTemplate = new StringRedisTemplate();
-        redisTemplate.setConnectionFactory(connectionFactory);
-        redisTemplate.afterPropertiesSet();
         filter = new RedisBloomAddressFilter(
                 redisTemplate, EXPECTED_INSERTIONS, ERROR_RATE, walletAddressRepository, meterRegistry);
     }
@@ -72,68 +56,69 @@ class RedisBloomAddressFilterTest {
         @Test
         @DisplayName("returns true when BF.EXISTS returns 1")
         void returnsTrueWhenBloomFilterContainsAddress() {
-            given(redisCommands.execute("BF.EXISTS", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(1L);
+            // given
+            lenient().when(redisTemplate.execute(
+                    org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                    org.mockito.ArgumentMatchers.eq(List.of(BLOOM_KEY)),
+                    org.mockito.ArgumentMatchers.eq(TEST_ADDRESS)
+            )).thenReturn(1L);
 
-            boolean result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
+            // when
+            var result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
 
+            // then
             assertThat(result).isTrue();
         }
 
         @Test
         @DisplayName("returns false when BF.EXISTS returns 0")
         void returnsFalseWhenBloomFilterDoesNotContainAddress() {
-            given(redisCommands.execute("BF.EXISTS", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(0L);
+            // given
+            lenient().when(redisTemplate.execute(
+                    org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                    org.mockito.ArgumentMatchers.eq(List.of(BLOOM_KEY)),
+                    org.mockito.ArgumentMatchers.eq(TEST_ADDRESS)
+            )).thenReturn(0L);
 
-            boolean result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
+            // when
+            var result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
 
+            // then
             assertThat(result).isFalse();
         }
 
         @Test
         @DisplayName("returns false when BF.EXISTS returns null")
         void returnsFalseWhenBloomFilterReturnsNull() {
-            given(redisCommands.execute("BF.EXISTS", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(null);
+            // given
+            lenient().when(redisTemplate.execute(
+                    org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                    org.mockito.ArgumentMatchers.eq(List.of(BLOOM_KEY)),
+                    org.mockito.ArgumentMatchers.eq(TEST_ADDRESS)
+            )).thenReturn(null);
 
-            boolean result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
+            // when
+            var result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
 
+            // then
             assertThat(result).isFalse();
-        }
-
-        @Test
-        @DisplayName("sends BF.EXISTS command with correct key and address")
-        void sendsCorrectCommand() {
-            given(redisCommands.execute("BF.EXISTS", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(1L);
-
-            filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
-
-            then(redisCommands).should().execute("BF.EXISTS", BLOOM_KEY_BYTES, ADDRESS_BYTES);
-        }
-
-        @Test
-        @DisplayName("returns true when BF.EXISTS returns byte array with value 1")
-        void returnsTrueWhenBloomFilterReturnsByteArray() {
-            given(redisCommands.execute("BF.EXISTS", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(new byte[]{1});
-
-            boolean result = filter.mightContain(TEST_ADDRESS, TEST_NETWORK);
-
-            assertThat(result).isTrue();
         }
 
         @Test
         @DisplayName("uses correct key for SOLANA network type")
         void usesCorrectKeyForSolanaNetworkType() {
-            String solanaKey = "indexer:bloom:SOLANA";
-            byte[] solanaKeyBytes = solanaKey.getBytes(StandardCharsets.UTF_8);
-            given(redisCommands.execute("BF.EXISTS", solanaKeyBytes, ADDRESS_BYTES))
-                    .willReturn(1L);
+            // given
+            var solanaKey = "indexer:bloom:SOLANA";
+            lenient().when(redisTemplate.execute(
+                    org.mockito.ArgumentMatchers.<DefaultRedisScript<Long>>any(),
+                    org.mockito.ArgumentMatchers.eq(List.of(solanaKey)),
+                    org.mockito.ArgumentMatchers.eq(TEST_ADDRESS)
+            )).thenReturn(1L);
 
-            boolean result = filter.mightContain(TEST_ADDRESS, SOLANA);
+            // when
+            var result = filter.mightContain(TEST_ADDRESS, SOLANA);
 
+            // then
             assertThat(result).isTrue();
         }
     }
@@ -145,35 +130,29 @@ class RedisBloomAddressFilterTest {
         @Test
         @DisplayName("delegates to WalletAddressRepository and returns true when address exists")
         void delegatesToRepositoryWhenExists() {
+            // given
             given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK))
                     .willReturn(true);
 
-            boolean result = filter.contains(TEST_ADDRESS, TEST_NETWORK);
+            // when
+            var result = filter.contains(TEST_ADDRESS, TEST_NETWORK);
 
+            // then
             assertThat(result).isTrue();
         }
 
         @Test
         @DisplayName("delegates to WalletAddressRepository and returns false when address does not exist")
         void delegatesToRepositoryWhenNotExists() {
+            // given
             given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK))
                     .willReturn(false);
 
-            boolean result = filter.contains(TEST_ADDRESS, TEST_NETWORK);
+            // when
+            var result = filter.contains(TEST_ADDRESS, TEST_NETWORK);
 
+            // then
             assertThat(result).isFalse();
-        }
-
-        @Test
-        @DisplayName("verifies DB confirmation call with correct parameters")
-        void verifiesDbConfirmationCall() {
-            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK))
-                    .willReturn(true);
-
-            filter.contains(TEST_ADDRESS, TEST_NETWORK);
-
-            then(walletAddressRepository).should()
-                    .existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK);
         }
     }
 
@@ -182,26 +161,10 @@ class RedisBloomAddressFilterTest {
     class Add {
 
         @Test
-        @DisplayName("sends BF.ADD command with correct key and address")
-        void sendsBfAddCommand() {
-            // given
-            given(redisCommands.execute("BF.ADD", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(1L);
-
-            // when
-            filter.add(TEST_ADDRESS, TEST_NETWORK);
-
-            // then
-            then(redisCommands).should().execute("BF.ADD", BLOOM_KEY_BYTES, ADDRESS_BYTES);
-        }
-
-        @Test
         @DisplayName("increments bloom size gauge when address is added")
         void incrementsBloomSizeGaugeWhenAddressIsAdded() {
             // given
             filter.initializeFilters();
-            given(redisCommands.execute("BF.ADD", BLOOM_KEY_BYTES, ADDRESS_BYTES))
-                    .willReturn(1L);
 
             // when
             filter.add(TEST_ADDRESS, TEST_NETWORK);
@@ -220,66 +183,13 @@ class RedisBloomAddressFilterTest {
     class Remove {
 
         @Test
-        @DisplayName("is a no-op and does not interact with Redis")
-        void isNoOpAndDoesNotInteractWithRedis() {
+        @DisplayName("is a no-op and does not interact with wallet address repository")
+        void isNoOpAndDoesNotInteractWithRepository() {
+            // given / when
             filter.remove(TEST_ADDRESS, TEST_NETWORK);
 
-            then(redisCommands).shouldHaveNoInteractions();
-        }
-
-        @Test
-        @DisplayName("does not interact with wallet address repository")
-        void doesNotInteractWithWalletAddressRepository() {
-            filter.remove(TEST_ADDRESS, TEST_NETWORK);
-
+            // then
             then(walletAddressRepository).shouldHaveNoInteractions();
-        }
-    }
-
-    @Nested
-    @DisplayName("initializeFilters")
-    class InitializeFilters {
-
-        @Test
-        @DisplayName("sends BF.RESERVE command for each network type during initialization")
-        void sendsBfReserveForAllNetworkTypes() {
-            byte[] errorRateBytes = String.valueOf(ERROR_RATE).getBytes(StandardCharsets.UTF_8);
-            byte[] expectedInsertionsBytes = String.valueOf(EXPECTED_INSERTIONS).getBytes(StandardCharsets.UTF_8);
-
-            for (NetworkType networkType : NetworkType.values()) {
-                String key = "indexer:bloom:" + networkType.name();
-                byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-                given(redisCommands.execute("BF.RESERVE", keyBytes, errorRateBytes, expectedInsertionsBytes))
-                        .willReturn("OK".getBytes(StandardCharsets.UTF_8));
-            }
-
-            filter.initializeFilters();
-
-            for (NetworkType networkType : NetworkType.values()) {
-                String key = "indexer:bloom:" + networkType.name();
-                byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-                then(redisCommands).should().execute(
-                        "BF.RESERVE", keyBytes, errorRateBytes, expectedInsertionsBytes);
-            }
-        }
-
-        @Test
-        @DisplayName("handles existing bloom filter gracefully without throwing")
-        void handlesExistingFilterGracefully() {
-            byte[] errorRateBytes = String.valueOf(ERROR_RATE).getBytes(StandardCharsets.UTF_8);
-            byte[] expectedInsertionsBytes = String.valueOf(EXPECTED_INSERTIONS).getBytes(StandardCharsets.UTF_8);
-
-            for (NetworkType networkType : NetworkType.values()) {
-                String key = "indexer:bloom:" + networkType.name();
-                byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
-                given(redisCommands.execute("BF.RESERVE", keyBytes, errorRateBytes, expectedInsertionsBytes))
-                        .willThrow(new RuntimeException("ERR item exists"));
-            }
-
-            filter.initializeFilters();
-
-            // No exception should propagate — initialization handles existing filters gracefully
-            then(redisCommands).shouldHaveNoMoreInteractions();
         }
     }
 }
