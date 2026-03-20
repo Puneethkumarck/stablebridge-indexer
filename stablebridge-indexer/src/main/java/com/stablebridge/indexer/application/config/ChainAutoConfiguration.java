@@ -7,31 +7,48 @@ import com.stablebridge.indexer.domain.port.ChainIndexer;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
+import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainConfig;
+import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainIndexerFactory;
+import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainTokenConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.stablebridge.indexer.application.properties.ConfirmationStrategy.FINALIZED;
+import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
 
 @Slf4j
 @Configuration
 class ChainAutoConfiguration {
 
     private static final String EVM_CHAIN_TYPE = "evm";
+    private static final String SOLANA_CHAIN_TYPE = "solana";
 
     @Bean
     List<ChainIndexer> chainIndexers(IndexerProperties indexerProperties,
                                       MeterRegistry meterRegistry) {
-        var indexers = indexerProperties.chains().entrySet().stream()
+        var evmIndexers = indexerProperties.chains().entrySet().stream()
                 .filter(entry -> entry.getValue().enabled())
                 .filter(entry -> EVM_CHAIN_TYPE.equals(entry.getValue().type()))
-                .map(entry -> createEvmChainIndexer(entry.getKey(), entry.getValue(), meterRegistry))
-                .toList();
+                .map(entry -> createEvmChainIndexer(entry.getKey(), entry.getValue(), meterRegistry));
 
-        log.info("Auto-configured {} EVM chain indexers", indexers.size());
+        var solanaIndexers = indexerProperties.chains().entrySet().stream()
+                .filter(entry -> entry.getValue().enabled())
+                .filter(entry -> SOLANA_CHAIN_TYPE.equals(entry.getValue().type()))
+                .map(entry -> createSolanaChainIndexer(entry.getKey(), entry.getValue()));
+
+        var indexers = Stream.concat(evmIndexers, solanaIndexers).toList();
+
+        var evmCount = indexers.stream()
+                .filter(i -> i.getChainId().networkType() == EVM)
+                .count();
+        var solanaCount = indexers.size() - evmCount;
+
+        log.info("Auto-configured {} chain indexers ({} EVM, {} Solana)", indexers.size(), evmCount, solanaCount);
         return indexers;
     }
 
@@ -58,14 +75,43 @@ class ChainAutoConfiguration {
                 .minConfirmations(chainProperties.minConfirmations())
                 .indexNativeTransfers(chainProperties.indexNativeTransfers())
                 .nativeDecimals(chainProperties.nativeDecimals())
-                .tokenContracts(mapTokenContracts(chainProperties.tokenContracts()))
+                .tokenContracts(mapEvmTokenContracts(chainProperties.tokenContracts()))
                 .build();
     }
 
-    private static List<EvmChainTokenConfig> mapTokenContracts(List<TokenContractProperties> tokenContracts) {
+    private static List<EvmChainTokenConfig> mapEvmTokenContracts(List<TokenContractProperties> tokenContracts) {
         return tokenContracts.stream()
                 .map(tc -> EvmChainTokenConfig.builder()
                         .address(tc.address())
+                        .symbol(tc.symbol())
+                        .decimals(tc.decimals())
+                        .build())
+                .toList();
+    }
+
+    private static ChainIndexer createSolanaChainIndexer(String networkId,
+                                                          ChainProperties chainProperties) {
+        var config = toSolanaChainConfig(networkId, chainProperties);
+        return SolanaChainIndexerFactory.create(config);
+    }
+
+    static SolanaChainConfig toSolanaChainConfig(String networkId,
+                                                  ChainProperties chainProperties) {
+        var rpc = chainProperties.rpc();
+        return SolanaChainConfig.builder()
+                .networkId(networkId)
+                .rpcUrl(rpc.urls().getFirst())
+                .rpcTimeout(rpc.timeout())
+                .indexNativeTransfers(chainProperties.indexNativeTransfers())
+                .nativeDecimals(chainProperties.nativeDecimals())
+                .tokenContracts(mapSolanaTokenContracts(chainProperties.tokenContracts()))
+                .build();
+    }
+
+    private static List<SolanaChainTokenConfig> mapSolanaTokenContracts(List<TokenContractProperties> tokenContracts) {
+        return tokenContracts.stream()
+                .map(tc -> SolanaChainTokenConfig.builder()
+                        .mintAddress(tc.address())
                         .symbol(tc.symbol())
                         .decimals(tc.decimals())
                         .build())

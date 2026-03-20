@@ -7,6 +7,8 @@ import com.stablebridge.indexer.application.properties.RpcProperties;
 import com.stablebridge.indexer.application.properties.TokenContractProperties;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainConfig;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainTokenConfig;
+import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainConfig;
+import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainTokenConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +22,7 @@ import java.util.Map;
 
 import static com.stablebridge.indexer.domain.model.ChainId.BASE;
 import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
+import static com.stablebridge.indexer.domain.model.ChainId.SOLANA_CHAIN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("ChainAutoConfiguration")
@@ -54,8 +57,8 @@ class ChainAutoConfigurationTest {
         }
 
         @Test
-        @DisplayName("skips non-EVM chain types")
-        void skipsNonEvmChainTypes() {
+        @DisplayName("creates both EVM and Solana chain indexers")
+        void createsBothEvmAndSolanaChainIndexers() {
             // given
             var chains = new LinkedHashMap<String, ChainProperties>();
             chains.put("ethereum_mainnet", anEvmChainProperties(true, ConfirmationStrategy.FINALIZED, 0));
@@ -67,8 +70,26 @@ class ChainAutoConfigurationTest {
             var indexers = configuration.chainIndexers(indexerProperties, METER_REGISTRY);
 
             // then
+            assertThat(indexers).hasSize(2);
+            assertThat(indexers.stream().map(i -> i.getChainId()).toList())
+                    .containsExactly(ETHEREUM, SOLANA_CHAIN);
+        }
+
+        @Test
+        @DisplayName("creates only Solana indexers when no EVM chains are configured")
+        void createsOnlySolanaIndexersWhenNoEvmChainsConfigured() {
+            // given
+            var chains = new LinkedHashMap<String, ChainProperties>();
+            chains.put("solana_mainnet", aSolanaChainProperties());
+
+            var indexerProperties = new IndexerProperties(chains, null, null);
+
+            // when
+            var indexers = configuration.chainIndexers(indexerProperties, METER_REGISTRY);
+
+            // then
             assertThat(indexers).hasSize(1);
-            assertThat(indexers.getFirst().getChainId()).isEqualTo(ETHEREUM);
+            assertThat(indexers.getFirst().getChainId()).isEqualTo(SOLANA_CHAIN);
         }
 
         @Test
@@ -178,6 +199,40 @@ class ChainAutoConfigurationTest {
         }
     }
 
+    @Nested
+    @DisplayName("toSolanaChainConfig")
+    class ToSolanaChainConfig {
+
+        @Test
+        @DisplayName("maps chain properties to Solana chain config correctly")
+        void mapsChainPropertiesToSolanaChainConfigCorrectly() {
+            // given
+            var chainProperties = aSolanaChainProperties();
+
+            var expected = SolanaChainConfig.builder()
+                    .networkId("solana_mainnet")
+                    .rpcUrl("https://rpc.example.com/v2/demo")
+                    .rpcTimeout(Duration.ofSeconds(10))
+                    .indexNativeTransfers(false)
+                    .nativeDecimals(9)
+                    .tokenContracts(List.of(
+                            SolanaChainTokenConfig.builder()
+                                    .mintAddress("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+                                    .symbol("USDC")
+                                    .decimals(6)
+                                    .build()))
+                    .build();
+
+            // when
+            var result = ChainAutoConfiguration.toSolanaChainConfig("solana_mainnet", chainProperties);
+
+            // then
+            assertThat(result)
+                    .usingRecursiveComparison()
+                    .isEqualTo(expected);
+        }
+    }
+
     // -- Factory methods for test chain properties --
 
     private static ChainProperties anEvmChainProperties(boolean enabled,
@@ -211,7 +266,8 @@ class ChainAutoConfigurationTest {
                 Duration.ofSeconds(1),
                 10,
                 aRpcProperties(),
-                List.of()
+                List.of(new TokenContractProperties(
+                        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "USDC", 6))
         );
     }
 
