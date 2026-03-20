@@ -1,6 +1,7 @@
 package com.stablebridge.indexer;
 
 import com.stablebridge.indexer.api.TransferEvent;
+import com.stablebridge.indexer.domain.model.BlockResult;
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
@@ -23,9 +24,9 @@ import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.StreamSupport;
 
 import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
 import static com.stablebridge.indexer.testutil.TransferFixtures.aBlockResult;
@@ -114,8 +115,6 @@ class BlockToKafkaEndToEndTest extends AbstractIntegrationTest {
         assertThat(records).isNotEmpty();
 
         var record = records.getFirst();
-        assertThat(record.key()).isEqualTo(WATCHED_ADDRESS);
-        assertThat(record.topic()).isEqualTo(KAFKA_TOPIC);
 
         var expected = TransferEvent.builder()
                 .txHash(transfer.txHash())
@@ -237,8 +236,7 @@ class BlockToKafkaEndToEndTest extends AbstractIntegrationTest {
         assertThat(event.tokenSymbol()).isEqualTo("USDT");
     }
 
-    private ChainIndexer stubChainIndexer(long blockNumber,
-                                           com.stablebridge.indexer.domain.model.BlockResult blockResult) {
+    private ChainIndexer stubChainIndexer(long blockNumber, BlockResult blockResult) {
         var chainIndexer = mock(ChainIndexer.class);
         given(chainIndexer.indexBlock(blockNumber)).willReturn(blockResult);
         given(chainIndexer.getChainId()).willReturn(ETHEREUM);
@@ -247,13 +245,9 @@ class BlockToKafkaEndToEndTest extends AbstractIntegrationTest {
 
     private List<ConsumerRecord<String, TransferEvent>> pollKafkaForKey(String expectedKey) {
         var records = consumer.poll(Duration.ofSeconds(5));
-        var filtered = new ArrayList<ConsumerRecord<String, TransferEvent>>();
-        records.forEach(record -> {
-            if (expectedKey.equals(record.key())) {
-                filtered.add(record);
-            }
-        });
-        return filtered;
+        return StreamSupport.stream(records.spliterator(), false)
+                .filter(record -> expectedKey.equals(record.key()))
+                .toList();
     }
 
     private KafkaConsumer<String, TransferEvent> createKafkaConsumer() {

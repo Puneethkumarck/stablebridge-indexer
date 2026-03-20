@@ -44,13 +44,13 @@ public class RedisBloomAddressFilter implements AddressFilter {
 
     static final String KEY_PREFIX = "indexer:bloom:";
 
-    private static final DefaultRedisScript<Long> BF_ADD_SCRIPT =
+    static final DefaultRedisScript<Long> BF_ADD_SCRIPT =
             new DefaultRedisScript<>("return redis.call('BF.ADD', KEYS[1], ARGV[1])", Long.class);
 
-    private static final DefaultRedisScript<Long> BF_EXISTS_SCRIPT =
+    static final DefaultRedisScript<Long> BF_EXISTS_SCRIPT =
             new DefaultRedisScript<>("return redis.call('BF.EXISTS', KEYS[1], ARGV[1])", Long.class);
 
-    private static final DefaultRedisScript<Long> BF_RESERVE_SCRIPT =
+    static final DefaultRedisScript<Long> BF_RESERVE_SCRIPT =
             new DefaultRedisScript<>(
                     "return redis.call('BF.RESERVE', KEYS[1], ARGV[1], ARGV[2])", Long.class);
 
