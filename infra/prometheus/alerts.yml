@@ -1,0 +1,68 @@
+groups:
+  - name: indexer-alerts
+    rules:
+      - alert: IndexerChainLagHigh
+        expr: indexer_chain_lag > 50
+        for: 5m
+        labels:
+          severity: critical
+          priority: P1
+        annotations:
+          summary: "Chain {{ $labels.chain }} lag exceeds 50 blocks"
+          description: "Chain {{ $labels.chain }} has been lagging behind by {{ $value }} blocks for more than 5 minutes."
+          runbook: "Check RPC health, network congestion, and worker state."
+
+      - alert: IndexerChainDown
+        expr: up{job="indexer"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          priority: P1
+        annotations:
+          summary: "Indexer instance is down"
+          description: "Indexer has been unreachable for more than 3 minutes."
+          runbook: "Check application health, restart if needed."
+
+      - alert: IndexerKafkaPublishFailed
+        expr: rate(indexer_kafka_publish_failed_total[1m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          priority: P1
+        annotations:
+          summary: "Kafka publish failures detected on chain {{ $labels.chain }}"
+          description: "Transfer events are failing to publish to Kafka on chain {{ $labels.chain }}. This may cause missed deposits."
+          runbook: "Check Kafka broker health, topic configuration, and network connectivity."
+
+      - alert: IndexerRpcErrorRate
+        expr: rate(indexer_rpc_latency_seconds_count{exception!="none"}[2m]) / rate(indexer_rpc_latency_seconds_count[2m]) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          priority: P2
+        annotations:
+          summary: "High RPC error rate on chain {{ $labels.chain }}"
+          description: "RPC error rate exceeds 50% on chain {{ $labels.chain }} for method {{ $labels.method }}."
+          runbook: "Check RPC provider status, consider switching to backup RPC."
+
+      - alert: IndexerFailedBlocks
+        expr: indexer_blocks_failed_total > 10
+        for: 5m
+        labels:
+          severity: warning
+          priority: P2
+        annotations:
+          summary: "More than 10 failed blocks on chain {{ $labels.chain }}"
+          description: "Chain {{ $labels.chain }} has {{ $value }} failed blocks. RescanWorker should be retrying these."
+          runbook: "Check RescanWorker state and failed block reasons."
+
+      - alert: IndexerBloomFilterEmpty
+        expr: indexer_bloom_size == 0
+        for: 5m
+        labels:
+          severity: warning
+          priority: P2
+        annotations:
+          summary: "Bloom filter empty for network type {{ $labels.networkType }}"
+          description: "No addresses loaded in bloom filter for {{ $labels.networkType }}. No transfers will be matched."
+          runbook: "Check wallet address database and bloom filter initialization."

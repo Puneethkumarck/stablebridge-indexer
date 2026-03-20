@@ -3,6 +3,7 @@ package com.stablebridge.indexer.application.config;
 import com.stablebridge.indexer.application.properties.BloomProperties;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
 import com.stablebridge.indexer.infrastructure.bloom.RedisBloomAddressFilter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,12 +17,14 @@ public class RedisBloomAutoConfiguration {
     RedisBloomAddressFilter redisBloomAddressFilter(
             StringRedisTemplate stringRedisTemplate,
             BloomProperties bloomProperties,
-            WalletAddressRepository walletAddressRepository) {
+            WalletAddressRepository walletAddressRepository,
+            MeterRegistry meterRegistry) {
         return new RedisBloomAddressFilter(
                 stringRedisTemplate,
                 bloomProperties.expectedInsertions(),
                 bloomProperties.errorRate(),
-                walletAddressRepository
+                walletAddressRepository,
+                meterRegistry
         );
     }
 }

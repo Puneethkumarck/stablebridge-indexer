@@ -37,6 +37,7 @@ import static com.stablebridge.indexer.testutil.TransferFixtures.DEFAULT_TO_ADDR
 import static com.stablebridge.indexer.testutil.TransferFixtures.aBlockResult;
 import static com.stablebridge.indexer.testutil.TransferFixtures.aTransfer;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.inOrder;
@@ -463,6 +464,22 @@ class BaseWorkerTest {
                     .counter();
             assertThat(counter).isNotNull();
             assertThat(counter.count()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("increments blocks failed counter when processBlock throws")
+        void incrementsBlocksFailedCounterWhenProcessBlockThrows() {
+            // given
+            given(chainIndexer.indexBlock(DEFAULT_BLOCK_NUMBER))
+                    .willThrow(new RuntimeException("RPC error"));
+
+            // when
+            assertThatThrownBy(() -> worker.processBlock(DEFAULT_BLOCK_NUMBER))
+                    .isInstanceOf(RuntimeException.class);
+
+            // then
+            assertThat(meterRegistry.counter("indexer.blocks.failed", "chain", "ETHEREUM").count())
+                    .isEqualTo(1.0);
         }
     }
 

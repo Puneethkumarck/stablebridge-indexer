@@ -3,6 +3,7 @@ package com.stablebridge.indexer.infrastructure.chain.evm;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.port.ChainIndexer;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +24,8 @@ public class EvmChainIndexerFactory {
             "bsc_mainnet", ChainId.BSC
     );
 
-    public static ChainIndexer create(EvmChainConfig config, ObjectMapper objectMapper) {
+    public static ChainIndexer create(EvmChainConfig config, ObjectMapper objectMapper,
+                                      MeterRegistry meterRegistry) {
         var chainId = resolveChainId(config.networkId());
 
         var rpcClient = new EvmRpcClient(
@@ -39,7 +41,8 @@ public class EvmChainIndexerFactory {
                 config.networkId(),
                 config.maxRetries(),
                 config.rateLimitRps(),
-                config.rateLimitBurst()
+                config.rateLimitBurst(),
+                meterRegistry
         );
 
         var nativeTransferParser = new EvmNativeTransferParser(chainId, config.nativeDecimals());

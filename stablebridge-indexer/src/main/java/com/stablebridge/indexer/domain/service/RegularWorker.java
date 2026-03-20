@@ -6,10 +6,12 @@ import com.stablebridge.indexer.domain.port.BlockProgressStore;
 import com.stablebridge.indexer.domain.port.ChainIndexer;
 import com.stablebridge.indexer.domain.port.TransferEventPublisher;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.stablebridge.indexer.domain.model.WorkerType.REGULAR;
 
@@ -19,6 +21,7 @@ public class RegularWorker extends BaseWorker {
     private final Duration pollInterval;
     private final int batchSize;
     private final long startBlock;
+    private final AtomicLong chainLag = new AtomicLong(0);
 
     public RegularWorker(
             ChainIndexer chainIndexer,
@@ -35,6 +38,9 @@ public class RegularWorker extends BaseWorker {
         this.pollInterval = pollInterval;
         this.batchSize = batchSize;
         this.startBlock = startBlock;
+        Gauge.builder("indexer.chain.lag", chainLag, AtomicLong::get)
+                .tag("chain", chainIndexer.getChainId().name())
+                .register(meterRegistry);
     }
 
     @Override
@@ -55,6 +61,7 @@ public class RegularWorker extends BaseWorker {
         }
 
         var lag = latestFinalized - lastProcessed;
+        chainLag.set(lag);
         if (lag > batchSize * 10L) {
             log.warn("Block lag exceeds threshold — chain={}, lag={}, latestFinalized={}, lastProcessed={}",
                     getChainId(), lag, latestFinalized, lastProcessed);

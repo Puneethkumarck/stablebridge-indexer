@@ -2,6 +2,8 @@ package com.stablebridge.indexer.infrastructure.bloom;
 
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -29,11 +31,15 @@ class GuavaBloomAddressFilterTest {
     @Mock
     private WalletAddressRepository walletAddressRepository;
 
+    private MeterRegistry meterRegistry;
+
     private GuavaBloomAddressFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new GuavaBloomAddressFilter(EXPECTED_INSERTIONS, ERROR_RATE, walletAddressRepository);
+        meterRegistry = new SimpleMeterRegistry();
+        filter = new GuavaBloomAddressFilter(
+                EXPECTED_INSERTIONS, ERROR_RATE, walletAddressRepository, meterRegistry);
         filter.initialize();
     }
 
@@ -118,14 +124,29 @@ class GuavaBloomAddressFilterTest {
         @Test
         @DisplayName("supports adding to different network types independently")
         void supportsMultipleNetworkTypes() {
+            // given / when
             filter.add(ADDRESS, EVM);
             filter.add(ADDRESS, SOLANA);
 
-            boolean evmResult = filter.mightContain(ADDRESS, EVM);
-            boolean solanaResult = filter.mightContain(ADDRESS, SOLANA);
+            // then
+            assertThat(filter.mightContain(ADDRESS, EVM)).isTrue();
+            assertThat(filter.mightContain(ADDRESS, SOLANA)).isTrue();
+        }
 
-            assertThat(evmResult).isTrue();
-            assertThat(solanaResult).isTrue();
+        @Test
+        @DisplayName("registers bloom size gauge reflecting approximate element count")
+        void registersBloomSizeGaugeReflectingApproximateElementCount() {
+            // given
+            filter.add(ADDRESS, EVM);
+
+            // when
+            var gauge = meterRegistry.find("indexer.bloom.size")
+                    .tag("networkType", "EVM")
+                    .gauge();
+
+            // then
+            assertThat(gauge).isNotNull();
+            assertThat(gauge.value()).isGreaterThan(0.0);
         }
     }
 

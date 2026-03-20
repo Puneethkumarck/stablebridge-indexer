@@ -2,6 +2,8 @@ package com.stablebridge.indexer.infrastructure.bloom;
 
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.WalletAddressRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,17 +50,19 @@ class RedisBloomAddressFilterTest {
     private WalletAddressRepository walletAddressRepository;
 
     private StringRedisTemplate redisTemplate;
+    private MeterRegistry meterRegistry;
     private RedisBloomAddressFilter filter;
 
     @BeforeEach
     void setUp() {
         lenient().when(connectionFactory.getConnection()).thenReturn(redisConnection);
         lenient().when(redisConnection.commands()).thenReturn(redisCommands);
+        meterRegistry = new SimpleMeterRegistry();
         redisTemplate = new StringRedisTemplate();
         redisTemplate.setConnectionFactory(connectionFactory);
         redisTemplate.afterPropertiesSet();
         filter = new RedisBloomAddressFilter(
-                redisTemplate, EXPECTED_INSERTIONS, ERROR_RATE, walletAddressRepository);
+                redisTemplate, EXPECTED_INSERTIONS, ERROR_RATE, walletAddressRepository, meterRegistry);
     }
 
     @Nested
@@ -180,12 +184,34 @@ class RedisBloomAddressFilterTest {
         @Test
         @DisplayName("sends BF.ADD command with correct key and address")
         void sendsBfAddCommand() {
+            // given
             given(redisCommands.execute("BF.ADD", BLOOM_KEY_BYTES, ADDRESS_BYTES))
                     .willReturn(1L);
 
+            // when
             filter.add(TEST_ADDRESS, TEST_NETWORK);
 
+            // then
             then(redisCommands).should().execute("BF.ADD", BLOOM_KEY_BYTES, ADDRESS_BYTES);
+        }
+
+        @Test
+        @DisplayName("increments bloom size gauge when address is added")
+        void incrementsBloomSizeGaugeWhenAddressIsAdded() {
+            // given
+            filter.initializeFilters();
+            given(redisCommands.execute("BF.ADD", BLOOM_KEY_BYTES, ADDRESS_BYTES))
+                    .willReturn(1L);
+
+            // when
+            filter.add(TEST_ADDRESS, TEST_NETWORK);
+
+            // then
+            var gauge = meterRegistry.find("indexer.bloom.size")
+                    .tag("networkType", "EVM")
+                    .gauge();
+            assertThat(gauge).isNotNull();
+            assertThat(gauge.value()).isEqualTo(1.0);
         }
     }
 

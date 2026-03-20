@@ -6,6 +6,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import com.stablebridge.indexer.domain.model.BlockResult;
 import com.stablebridge.indexer.domain.model.IndexedBlock;
 import com.stablebridge.indexer.domain.model.Transfer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,7 +75,7 @@ class EvmChainIndexerE2eTest {
         var rpcClient = new EvmRpcClient(
                 wmRuntimeInfo.getHttpBaseUrl(), BATCH_SIZE, false, TIMEOUT, objectMapper);
         var resilientClient = new ResilientEvmRpcClient(
-                rpcClient, "test_chain", 1, 100, 100);
+                rpcClient, "test_chain", 1, 100, 100, new SimpleMeterRegistry());
 
         var usdcConfig = EvmTokenConfig.builder()
                 .address(USDC_CONTRACT)

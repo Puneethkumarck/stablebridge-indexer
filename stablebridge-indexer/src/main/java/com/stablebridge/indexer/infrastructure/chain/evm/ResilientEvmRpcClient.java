@@ -9,6 +9,8 @@ import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
@@ -33,14 +35,16 @@ class ResilientEvmRpcClient {
     private final CircuitBreaker circuitBreaker;
     private final Retry retry;
     private final RateLimiter rateLimiter;
+    private final MeterRegistry meterRegistry;
 
     ResilientEvmRpcClient(EvmRpcClient delegate, String chainName, int maxRetries,
-                          int rateLimitRps, int rateLimitBurst) {
+                          int rateLimitRps, int rateLimitBurst, MeterRegistry meterRegistry) {
         this.delegate = delegate;
         this.chainName = chainName;
         this.circuitBreaker = createCircuitBreaker(chainName);
         this.retry = createRetry(chainName, maxRetries);
         this.rateLimiter = createRateLimiter(chainName, rateLimitRps, rateLimitBurst);
+        this.meterRegistry = meterRegistry;
     }
 
     long getLatestBlockNumber() {
@@ -76,6 +80,7 @@ class ResilientEvmRpcClient {
     }
 
     private <T> T executeWithResilience(Supplier<T> supplier, String methodName) {
+        var sample = Timer.start(meterRegistry);
         var decorated = decorateSupplier(supplier);
         try {
             return decorated.get();
@@ -85,6 +90,11 @@ class ResilientEvmRpcClient {
         } catch (RequestNotPermitted e) {
             log.warn("Rate limiter rejected call for chain={}, method={}", chainName, methodName);
             throw EvmRpcResilienceException.rateLimited(chainName);
+        } finally {
+            sample.stop(Timer.builder("indexer.rpc.latency")
+                    .tag("chain", chainName)
+                    .tag("method", methodName)
+                    .register(meterRegistry));
         }
     }
 
