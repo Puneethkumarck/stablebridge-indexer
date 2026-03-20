@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -27,6 +28,7 @@ public class RedisBlockProgressStore implements BlockProgressStore {
 
     static final String PROGRESS_KEY = "indexer:progress";
     static final String FAILED_KEY_PREFIX = "indexer:failed:";
+    static final String CATCHUP_KEY_PREFIX = "indexer:catchup:";
 
     private final StringRedisTemplate redisTemplate;
 
@@ -65,7 +67,30 @@ public class RedisBlockProgressStore implements BlockProgressStore {
         redisTemplate.opsForZSet().remove(failedKey(chainId), String.valueOf(blockNumber));
     }
 
+    @Override
+    public void saveCatchupRange(ChainId chainId, long fromBlock, long toBlock) {
+        redisTemplate.opsForHash().put(catchupKey(chainId), String.valueOf(fromBlock), String.valueOf(toBlock));
+    }
+
+    @Override
+    public Map<Long, Long> getCatchupRanges(ChainId chainId) {
+        var entries = redisTemplate.opsForHash().entries(catchupKey(chainId));
+        return entries.entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> Long.parseLong(e.getKey().toString()),
+                        e -> Long.parseLong(e.getValue().toString())));
+    }
+
+    @Override
+    public void removeCatchupRange(ChainId chainId, long fromBlock) {
+        redisTemplate.opsForHash().delete(catchupKey(chainId), String.valueOf(fromBlock));
+    }
+
     private String failedKey(ChainId chainId) {
         return FAILED_KEY_PREFIX + chainId.name();
+    }
+
+    private String catchupKey(ChainId chainId) {
+        return CATCHUP_KEY_PREFIX + chainId.name();
     }
 }

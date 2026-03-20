@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -21,6 +22,7 @@ import static com.stablebridge.indexer.domain.model.ChainId.BSC;
 import static com.stablebridge.indexer.domain.model.ChainId.ETHEREUM;
 import static com.stablebridge.indexer.domain.model.ChainId.OPTIMISM;
 import static com.stablebridge.indexer.domain.model.ChainId.POLYGON;
+import static com.stablebridge.indexer.infrastructure.progress.RedisBlockProgressStore.CATCHUP_KEY_PREFIX;
 import static com.stablebridge.indexer.infrastructure.progress.RedisBlockProgressStore.FAILED_KEY_PREFIX;
 import static com.stablebridge.indexer.infrastructure.progress.RedisBlockProgressStore.PROGRESS_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -185,6 +187,84 @@ class RedisBlockProgressStoreTest {
             then(zSetOperations).should().remove(
                     FAILED_KEY_PREFIX + ETHEREUM.name(),
                     "42000"
+            );
+        }
+    }
+
+    @Nested
+    @DisplayName("saveCatchupRange")
+    class SaveCatchupRange {
+
+        @Test
+        @DisplayName("should save catchup range to Redis hash")
+        void shouldSaveCatchupRangeToRedisHash() {
+            // given
+            given(redisTemplate.opsForHash()).willReturn(hashOperations);
+
+            // when
+            store.saveCatchupRange(POLYGON, 1000L, 2000L);
+
+            // then
+            then(hashOperations).should().put(
+                    CATCHUP_KEY_PREFIX + POLYGON.name(),
+                    "1000",
+                    "2000"
+            );
+        }
+    }
+
+    @Nested
+    @DisplayName("getCatchupRanges")
+    class GetCatchupRanges {
+
+        @Test
+        @DisplayName("should return catchup ranges from Redis hash")
+        void shouldReturnCatchupRangesFromRedisHash() {
+            // given
+            given(redisTemplate.opsForHash()).willReturn(hashOperations);
+            given(hashOperations.entries(CATCHUP_KEY_PREFIX + ARBITRUM.name()))
+                    .willReturn(Map.of("500", "600", "700", "800"));
+
+            // when
+            var result = store.getCatchupRanges(ARBITRUM);
+
+            // then
+            assertThat(result).isEqualTo(Map.of(500L, 600L, 700L, 800L));
+        }
+
+        @Test
+        @DisplayName("should return empty map when no catchup ranges exist")
+        void shouldReturnEmptyMapWhenNoCatchupRangesExist() {
+            // given
+            given(redisTemplate.opsForHash()).willReturn(hashOperations);
+            given(hashOperations.entries(CATCHUP_KEY_PREFIX + BASE.name()))
+                    .willReturn(Map.of());
+
+            // when
+            var result = store.getCatchupRanges(BASE);
+
+            // then
+            assertThat(result).isEqualTo(Map.of());
+        }
+    }
+
+    @Nested
+    @DisplayName("removeCatchupRange")
+    class RemoveCatchupRange {
+
+        @Test
+        @DisplayName("should remove catchup range from Redis hash")
+        void shouldRemoveCatchupRangeFromRedisHash() {
+            // given
+            given(redisTemplate.opsForHash()).willReturn(hashOperations);
+
+            // when
+            store.removeCatchupRange(AVALANCHE, 3000L);
+
+            // then
+            then(hashOperations).should().delete(
+                    CATCHUP_KEY_PREFIX + AVALANCHE.name(),
+                    "3000"
             );
         }
     }
