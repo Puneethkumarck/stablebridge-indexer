@@ -2,6 +2,7 @@ package com.stablebridge.indexer.domain.port;
 
 import com.stablebridge.indexer.domain.model.ChainId;
 
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -59,4 +60,29 @@ public interface BlockProgressStore {
      * @param blockNumber the block number to remove from the failed set
      */
     void removeFailedBlock(ChainId chainId, long blockNumber);
+
+    /**
+     * Saves a catchup range for the given chain, indicating a gap that needs backfilling.
+     *
+     * @param chainId   the chain to update
+     * @param fromBlock the start block of the catchup range (inclusive)
+     * @param toBlock   the end block of the catchup range (inclusive)
+     */
+    void saveCatchupRange(ChainId chainId, long fromBlock, long toBlock);
+
+    /**
+     * Returns all catchup ranges for the given chain, mapping start block to end block.
+     *
+     * @param chainId the chain to query
+     * @return a map of fromBlock to toBlock for all pending catchup ranges (may be empty)
+     */
+    Map<Long, Long> getCatchupRanges(ChainId chainId);
+
+    /**
+     * Removes a catchup range after it has been fully processed.
+     *
+     * @param chainId   the chain to update
+     * @param fromBlock the start block of the catchup range to remove
+     */
+    void removeCatchupRange(ChainId chainId, long fromBlock);
 }
