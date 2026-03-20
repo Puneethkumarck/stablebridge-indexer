@@ -10,6 +10,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 record BtcBlock(
         String hash,
+        String previousblockhash,
         long height,
         long time,
         int confirmations,
