@@ -374,6 +374,10 @@ class BaseWorkerTest {
             assertThat(MDC.get("blockNumber")).isNull();
             assertThat(MDC.get("workerType")).isNull();
             assertThat(MDC.get("traceId")).isNull();
+            assertThat(MDC.get("latency_ms")).isNull();
+            assertThat(MDC.get("txHash")).isNull();
+            assertThat(MDC.get("walletAddress")).isNull();
+            assertThat(MDC.get("tokenSymbol")).isNull();
         }
 
         @Test
@@ -395,6 +399,10 @@ class BaseWorkerTest {
             assertThat(MDC.get("blockNumber")).isNull();
             assertThat(MDC.get("workerType")).isNull();
             assertThat(MDC.get("traceId")).isNull();
+            assertThat(MDC.get("latency_ms")).isNull();
+            assertThat(MDC.get("txHash")).isNull();
+            assertThat(MDC.get("walletAddress")).isNull();
+            assertThat(MDC.get("tokenSymbol")).isNull();
         }
     }
 
