@@ -34,7 +34,22 @@ afterEvaluate {
             tags = setOf("latest")
         }
         container {
+            ports = listOf("8080", "8081")
+            jvmFlags = listOf(
+                "-XX:+UseZGC",
+                "-XX:MaxRAMPercentage=75.0",
+                "-XX:+ExitOnOutOfMemoryError",
+                "-Djava.security.egd=file:/dev/./urandom"
+            )
             creationTime.set("USE_CURRENT_TIMESTAMP")
+            setFormat("OCI")
+            val imageSource = providers.environmentVariable("GITHUB_SERVER_URL")
+                .zip(providers.environmentVariable("GITHUB_REPOSITORY")) { server, repo -> "$server/$repo" }
+                .orElse("https://github.com/stablebridge/indexer")
+            labels.set(mapOf(
+                "org.opencontainers.image.source" to imageSource.get(),
+                "org.opencontainers.image.description" to "StableBridge Multichain Indexer"
+            ))
         }
     }
 }
