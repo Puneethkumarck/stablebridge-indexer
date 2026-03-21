@@ -290,3 +290,51 @@ resource "docker_container" "grafana" {
   restart    = "unless-stopped"
   depends_on = [docker_container.prometheus]
 }
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+resource "docker_container" "app" {
+  name  = "indexer-app"
+  image = var.app_image
+
+  env = [
+    "SPRING_DATASOURCE_URL=jdbc:postgresql://indexer-postgres:5432/${var.postgres_db}",
+    "SPRING_DATASOURCE_USERNAME=${var.postgres_user}",
+    "SPRING_DATASOURCE_PASSWORD=${var.postgres_password}",
+    "SPRING_DATA_REDIS_HOST=indexer-redis",
+    "SPRING_DATA_REDIS_PORT=6379",
+    "KAFKA_BOOTSTRAP_SERVERS=indexer-redpanda:9092",
+    "INDEXER_API_KEY=${var.indexer_api_key}",
+    "SPRING_PROFILES_ACTIVE=${var.spring_profiles_active}",
+    "ETHEREUM_RPC_URL=${var.ethereum_rpc_url}",
+    "SEPOLIA_RPC_URL=${var.sepolia_rpc_url}",
+    "BASE_SEPOLIA_RPC_URL=${var.base_sepolia_rpc_url}",
+    "SOLANA_DEVNET_RPC_URL=${var.solana_devnet_rpc_url}",
+  ]
+
+  ports {
+    internal = 8080
+    external = var.app_port
+  }
+
+  ports {
+    internal = 8081
+    external = var.app_mgmt_port
+  }
+
+  networks_advanced {
+    name = docker_network.indexer.name
+  }
+
+  restart    = "unless-stopped"
+  depends_on = [docker_container.postgres, docker_container.redis, docker_container.redpanda]
+
+  healthcheck {
+    test         = ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health || exit 1"]
+    interval     = "15s"
+    timeout      = "5s"
+    retries      = 10
+    start_period = "30s"
+  }
+}

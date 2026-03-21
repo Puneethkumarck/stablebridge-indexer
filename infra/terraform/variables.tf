@@ -155,3 +155,61 @@ variable "grafana_admin_password" {
   default     = "admin"
   sensitive   = true
 }
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
+variable "app_image" {
+  description = "Indexer application Docker image"
+  type        = string
+  default     = "stablebridge/indexer:latest"
+}
+
+variable "app_port" {
+  description = "Host port for the application"
+  type        = number
+  default     = 8080
+}
+
+variable "app_mgmt_port" {
+  description = "Host port for actuator/management"
+  type        = number
+  default     = 8081
+}
+
+variable "indexer_api_key" {
+  description = "API key for X-API-Key header authentication"
+  type        = string
+  default     = "change-me"
+  sensitive   = true
+}
+
+variable "spring_profiles_active" {
+  description = "Spring profiles to activate (e.g., testnet)"
+  type        = string
+  default     = ""
+}
+
+variable "ethereum_rpc_url" {
+  description = "Ethereum mainnet RPC URL"
+  type        = string
+  default     = "https://eth-mainnet.g.alchemy.com/v2/demo"
+}
+
+variable "sepolia_rpc_url" {
+  description = "Sepolia testnet RPC URL"
+  type        = string
+  default     = "https://eth-sepolia.g.alchemy.com/v2/demo"
+}
+
+variable "base_sepolia_rpc_url" {
+  description = "Base Sepolia testnet RPC URL"
+  type        = string
+  default     = "https://base-sepolia.g.alchemy.com/v2/demo"
+}
+
+variable "solana_devnet_rpc_url" {
+  description = "Solana Devnet RPC URL"
+  type        = string
+  default     = "https://api.devnet.solana.com"
+}

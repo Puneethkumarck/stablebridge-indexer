@@ -16,6 +16,9 @@ output "kafka_bootstrap_servers" {
 output "services" {
   description = "Service endpoints"
   value = {
+    app_api          = "http://localhost:${var.app_port}/api/v1/status"
+    actuator_health  = "http://localhost:${var.app_mgmt_port}/actuator/health"
+    prometheus_metrics = "http://localhost:${var.app_mgmt_port}/actuator/prometheus"
     postgresql       = "localhost:${var.postgres_port}"
     redis            = "localhost:${var.redis_port}"
     redis_insight    = "http://localhost:${var.redis_insight_port}"

@@ -58,17 +58,17 @@ public class GuavaBloomAddressFilter implements AddressFilter {
 
     @Override
     public boolean mightContain(String address, NetworkType networkType) {
-        return getOrCreateFilter(networkType).mightContain(address);
+        return getOrCreateFilter(networkType).mightContain(address.toLowerCase());
     }
 
     @Override
     public boolean contains(String address, NetworkType networkType) {
-        return walletAddressRepository.existsByAddressAndNetworkType(address, networkType);
+        return walletAddressRepository.existsByAddressAndNetworkType(address.toLowerCase(), networkType);
     }
 
     @Override
     public void add(String address, NetworkType networkType) {
-        getOrCreateFilter(networkType).put(address);
+        getOrCreateFilter(networkType).put(address.toLowerCase());
         log.debug("Added address to Guava bloom filter — networkType={}, address={}", networkType, address);
     }
 

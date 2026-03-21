@@ -77,19 +77,21 @@ public class RedisBloomAddressFilter implements AddressFilter {
     @Override
     public boolean mightContain(String address, NetworkType networkType) {
         var key = bloomKey(networkType);
-        var result = redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(key), address);
+        var normalizedAddress = address.toLowerCase();
+        var result = redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(key), normalizedAddress);
         return result != null && result == 1L;
     }
 
     @Override
     public boolean contains(String address, NetworkType networkType) {
-        return walletAddressRepository.existsByAddressAndNetworkType(address, networkType);
+        return walletAddressRepository.existsByAddressAndNetworkType(address.toLowerCase(), networkType);
     }
 
     @Override
     public void add(String address, NetworkType networkType) {
         var key = bloomKey(networkType);
-        redisTemplate.execute(BF_ADD_SCRIPT, List.of(key), address);
+        var normalizedAddress = address.toLowerCase();
+        redisTemplate.execute(BF_ADD_SCRIPT, List.of(key), normalizedAddress);
         bloomSizes.computeIfAbsent(networkType, nt -> new AtomicLong(0)).incrementAndGet();
         log.debug("Added address to Redis bloom filter — networkType={}, address={}", networkType, address);
     }
