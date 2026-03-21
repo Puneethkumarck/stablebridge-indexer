@@ -90,6 +90,7 @@ terraform-down: ## Destroy Terraform-managed infrastructure
 # Docker Image
 # ---------------------------------------------------------------------------
 docker-build: ## Build production Docker image via Jib
+	@rm -rf stablebridge-indexer/build/jib-cache
 	./gradlew :stablebridge-indexer:jibDockerBuild
 
 # ---------------------------------------------------------------------------
