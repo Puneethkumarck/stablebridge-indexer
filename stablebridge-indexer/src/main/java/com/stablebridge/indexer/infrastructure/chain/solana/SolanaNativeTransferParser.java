@@ -125,7 +125,6 @@ class SolanaNativeTransferParser {
         return List.of(transfer);
     }
 
-    @SuppressWarnings("unchecked")
     private List<String> extractPubkeys(List<Object> accountKeys) {
         return accountKeys.stream()
                 .map(key -> {
