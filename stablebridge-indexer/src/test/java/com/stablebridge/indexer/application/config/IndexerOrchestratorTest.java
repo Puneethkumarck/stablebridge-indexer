@@ -32,7 +32,9 @@ import static com.stablebridge.indexer.domain.model.NetworkType.EVM;
 import static com.stablebridge.indexer.domain.model.NetworkType.SOLANA;
 import static com.stablebridge.indexer.domain.model.WorkerState.STOPPED;
 import static com.stablebridge.indexer.testutil.WalletAddressFixtures.aWalletAddress;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
@@ -134,20 +136,19 @@ class IndexerOrchestratorTest {
 
         @Test
         @DisplayName("stops all workers on shutdown")
-        void stopsAllWorkersOnShutdown() throws InterruptedException {
+        void stopsAllWorkersOnShutdown() {
             // given
             stubEmptyWalletAddresses();
             orchestrator = createOrchestrator(List.of(chainIndexer));
             orchestrator.start();
-            Thread.sleep(50); // let worker threads start before stopping
 
             // when
             orchestrator.stop();
-            Thread.sleep(50); // let worker threads finish stopping
 
             // then
-            assertThat(orchestrator.getWorkers())
-                    .allMatch(w -> w.getState() == STOPPED);
+            await().atMost(5, SECONDS).untilAsserted(() ->
+                    assertThat(orchestrator.getWorkers())
+                            .allMatch(w -> w.getState() == STOPPED));
         }
     }
 

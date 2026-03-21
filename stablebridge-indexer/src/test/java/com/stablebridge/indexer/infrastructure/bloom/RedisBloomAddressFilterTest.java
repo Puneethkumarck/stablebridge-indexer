@@ -30,6 +30,7 @@ import static org.mockito.BDDMockito.then;
 class RedisBloomAddressFilterTest {
 
     private static final String TEST_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18";
+    private static final String TEST_ADDRESS_LOWER = TEST_ADDRESS.toLowerCase();
     private static final NetworkType TEST_NETWORK = EVM;
     private static final String BLOOM_KEY = "indexer:bloom:EVM";
     private static final long EXPECTED_INSERTIONS = 1_000_000L;
@@ -59,7 +60,7 @@ class RedisBloomAddressFilterTest {
         @DisplayName("returns true when BF.EXISTS returns 1")
         void returnsTrueWhenBloomFilterContainsAddress() {
             // given
-            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS))
+            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS_LOWER))
                     .willReturn(1L);
 
             // when
@@ -73,7 +74,7 @@ class RedisBloomAddressFilterTest {
         @DisplayName("returns false when BF.EXISTS returns 0")
         void returnsFalseWhenBloomFilterDoesNotContainAddress() {
             // given
-            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS))
+            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS_LOWER))
                     .willReturn(0L);
 
             // when
@@ -87,7 +88,7 @@ class RedisBloomAddressFilterTest {
         @DisplayName("returns false when BF.EXISTS returns null")
         void returnsFalseWhenBloomFilterReturnsNull() {
             // given
-            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS))
+            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS_LOWER))
                     .willReturn(null);
 
             // when
@@ -102,7 +103,7 @@ class RedisBloomAddressFilterTest {
         void usesCorrectKeyForSolanaNetworkType() {
             // given
             var solanaKey = "indexer:bloom:SOLANA";
-            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(solanaKey), TEST_ADDRESS))
+            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(solanaKey), TEST_ADDRESS_LOWER))
                     .willReturn(1L);
 
             // when
@@ -121,7 +122,7 @@ class RedisBloomAddressFilterTest {
         @DisplayName("delegates to WalletAddressRepository and returns true when address exists")
         void delegatesToRepositoryWhenExists() {
             // given
-            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK))
+            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS_LOWER, TEST_NETWORK))
                     .willReturn(true);
 
             // when
@@ -135,7 +136,7 @@ class RedisBloomAddressFilterTest {
         @DisplayName("delegates to WalletAddressRepository and returns false when address does not exist")
         void delegatesToRepositoryWhenNotExists() {
             // given
-            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK))
+            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS_LOWER, TEST_NETWORK))
                     .willReturn(false);
 
             // when
@@ -149,7 +150,7 @@ class RedisBloomAddressFilterTest {
         @DisplayName("verifies DB confirmation call with correct parameters")
         void verifiesDbConfirmationCall() {
             // given
-            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK))
+            given(walletAddressRepository.existsByAddressAndNetworkType(TEST_ADDRESS_LOWER, TEST_NETWORK))
                     .willReturn(true);
 
             // when
@@ -157,7 +158,7 @@ class RedisBloomAddressFilterTest {
 
             // then
             then(walletAddressRepository).should()
-                    .existsByAddressAndNetworkType(TEST_ADDRESS, TEST_NETWORK);
+                    .existsByAddressAndNetworkType(TEST_ADDRESS_LOWER, TEST_NETWORK);
         }
     }
 
@@ -172,7 +173,7 @@ class RedisBloomAddressFilterTest {
             filter.add(TEST_ADDRESS, TEST_NETWORK);
 
             // then
-            then(redisTemplate).should().execute(BF_ADD_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS);
+            then(redisTemplate).should().execute(BF_ADD_SCRIPT, List.of(BLOOM_KEY), TEST_ADDRESS_LOWER);
         }
 
         @Test
