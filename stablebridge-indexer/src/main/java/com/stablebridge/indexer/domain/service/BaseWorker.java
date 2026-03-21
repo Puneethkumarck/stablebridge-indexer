@@ -88,18 +88,24 @@ public abstract class BaseWorker {
     }
 
     public void park() {
-        var previousState = state.getAndSet(PARKED);
-        log.warn("Worker state changed — from={}, to={}, chain={}, workerType={}",
-                previousState, PARKED, getChainId(), getWorkerType());
+        if (state.compareAndSet(RUNNING, PARKED)) {
+            log.warn("Worker state changed — from={}, to={}, chain={}, workerType={}",
+                    RUNNING, PARKED, getChainId(), getWorkerType());
+        }
     }
 
     public boolean tryResume() {
+        if (state.get() == STOPPED) {
+            return false;
+        }
         try {
             chainIndexer.getLatestFinalizedBlockNumber();
-            var previousState = state.getAndSet(RUNNING);
-            log.info("Worker state changed — from={}, to={}, chain={}, workerType={}",
-                    previousState, RUNNING, getChainId(), getWorkerType());
-            return true;
+            if (state.compareAndSet(PARKED, RUNNING)) {
+                log.info("Worker state changed — from={}, to={}, chain={}, workerType={}",
+                        PARKED, RUNNING, getChainId(), getWorkerType());
+                return true;
+            }
+            return false;
         } catch (Exception e) {
             log.debug("Health probe failed, staying PARKED — chain={}, workerType={}, error={}",
                     getChainId(), getWorkerType(), e.getMessage());

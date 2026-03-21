@@ -58,17 +58,18 @@ public class GuavaBloomAddressFilter implements AddressFilter {
 
     @Override
     public boolean mightContain(String address, NetworkType networkType) {
-        return getOrCreateFilter(networkType).mightContain(address.toLowerCase());
+        return getOrCreateFilter(networkType).mightContain(normalizeAddress(address, networkType));
     }
 
     @Override
     public boolean contains(String address, NetworkType networkType) {
-        return walletAddressRepository.existsByAddressAndNetworkType(address.toLowerCase(), networkType);
+        return walletAddressRepository.existsByAddressAndNetworkType(
+                normalizeAddress(address, networkType), networkType);
     }
 
     @Override
     public void add(String address, NetworkType networkType) {
-        getOrCreateFilter(networkType).put(address.toLowerCase());
+        getOrCreateFilter(networkType).put(normalizeAddress(address, networkType));
         log.debug("Added address to Guava bloom filter — networkType={}, address={}", networkType, address);
     }
 
@@ -80,6 +81,10 @@ public class GuavaBloomAddressFilter implements AddressFilter {
 
     private BloomFilter<String> getOrCreateFilter(NetworkType networkType) {
         return filters.computeIfAbsent(networkType, this::createBloomFilter);
+    }
+
+    private static String normalizeAddress(String address, NetworkType networkType) {
+        return networkType == NetworkType.EVM ? address.toLowerCase() : address;
     }
 
     @SuppressWarnings("UnstableApiUsage")

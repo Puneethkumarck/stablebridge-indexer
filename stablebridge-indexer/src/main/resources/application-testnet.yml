@@ -20,7 +20,7 @@ indexer:
 
     # --- EVM: Sepolia ---
     sepolia:
-      enabled: true
+      enabled: false
       type: evm
       confirmation-strategy: finalized
       index-native-transfers: true
@@ -72,7 +72,7 @@ indexer:
 
     # --- Solana Devnet ---
     solana_devnet:
-      enabled: false                          # Enable separately to avoid Alchemy rate limit
+      enabled: true
       type: solana
       confirmation-strategy: finalized
       index-native-transfers: true
