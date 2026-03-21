@@ -21,7 +21,7 @@ public class WalletCommandHandler {
     private final AddressFilter addressFilter;
 
     public WalletAddress addWallet(String address, NetworkType networkType, String label) {
-        var normalizedAddress = address.toLowerCase();
+        var normalizedAddress = networkType == NetworkType.EVM ? address.toLowerCase() : address;
         var walletAddress = WalletAddress.builder()
                 .address(normalizedAddress)
                 .networkType(networkType)

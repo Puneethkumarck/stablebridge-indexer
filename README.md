@@ -587,6 +587,47 @@ For the full set of 21 architecture decisions, see [`docs/architecture-decisions
 
 ---
 
+## :crystal_ball: Roadmap
+
+### New Chains
+
+| Chain | Type | Priority | Notes |
+|-------|------|----------|-------|
+| TRON | TVM | High | Large stablecoin volume (USDT dominates on TRON) |
+| Aptos | Move | Medium | Growing DeFi ecosystem, Move VM |
+| Sui | Move | Medium | gRPC-based ledger service, high throughput |
+| Cosmos (ATOM) | Cosmos SDK | Medium | IBC transfers, native USDC via Noble |
+| TON | TON | Low | Telegram ecosystem, unique architecture |
+| Avalanche C-Chain | EVM | Low | Already supported by EVM indexer (add config only) |
+| Arbitrum | EVM | Low | Already supported by EVM indexer (add config only) |
+| Optimism | EVM | Low | Already supported by EVM indexer (add config only) |
+
+### Features
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| **Reorg detection** | High | Reactive reorg handling for chains that don't support `finalized` tag — detect parent hash mismatch, rollback and re-index affected blocks |
+| **Mempool monitoring** | High | Watch pending transactions for early deposit notification (pre-confirmation) |
+| **ManualWorker** | High | On-demand historical backfill for specific block ranges via API — required for merchant onboarding with retroactive deposit detection |
+| **OAuth2 / JWT auth** | Medium | Replace API key with OAuth2 for external-facing deployments behind API gateway |
+| **Multi-tenancy** | Medium | Per-tenant wallet isolation for SaaS deployment — separate bloom filters and Kafka topics per tenant |
+| **WebSocket notifications** | Medium | Real-time push to consumers instead of Kafka polling — useful for webhook-style integrations |
+| **Outbox pattern** | Medium | Transactional outbox for Kafka publishing — stronger delivery guarantees by writing events to PostgreSQL first |
+| **gRPC API** | Low | Alternative to REST for high-throughput internal service communication |
+| **Topic compaction** | Low | Kafka log compaction for infinite retention of latest state per wallet |
+| **GraphQL query layer** | Low | Query indexed transfers by wallet, token, time range — useful for merchant dashboards |
+
+### Infrastructure
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| **Kubernetes Helm chart** | High | Production deployment with HPA, PDB, configmaps, secrets |
+| **AWS Terraform modules** | Medium | RDS, ElastiCache, MSK, ECS Fargate for cloud deployment |
+| **OpenTelemetry tracing** | Medium | Distributed tracing across RPC calls, workers, and Kafka publishing |
+| **PagerDuty integration** | Low | Alert routing for P1 incidents (chain down, Kafka publish failures) |
+
+---
+
 ## :handshake: Contributing
 
 1. Fork the repository

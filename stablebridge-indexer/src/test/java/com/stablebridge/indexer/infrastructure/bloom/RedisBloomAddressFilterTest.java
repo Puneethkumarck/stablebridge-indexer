@@ -103,7 +103,7 @@ class RedisBloomAddressFilterTest {
         void usesCorrectKeyForSolanaNetworkType() {
             // given
             var solanaKey = "indexer:bloom:SOLANA";
-            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(solanaKey), TEST_ADDRESS_LOWER))
+            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(solanaKey), TEST_ADDRESS))
                     .willReturn(1L);
 
             // when

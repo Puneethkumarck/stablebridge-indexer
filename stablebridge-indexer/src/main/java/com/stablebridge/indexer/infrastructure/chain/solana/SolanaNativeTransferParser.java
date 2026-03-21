@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -80,14 +81,15 @@ class SolanaNativeTransferParser {
 
     private List<Transfer> buildTransfer(SolanaInstruction instruction,
                                          SolanaTransactionMeta meta,
-                                         List<String> accountKeys,
+                                         List<Object> accountKeys,
                                          String txHash, int txIndex,
                                          long slot, String blockHash,
                                          Instant blockTimestamp) {
         var fromAddress = instruction.accounts().get(SYSTEM_TRANSFER_FROM_INDEX);
         var toAddress = instruction.accounts().get(SYSTEM_TRANSFER_TO_INDEX);
 
-        var toAccountIndex = accountKeys.indexOf(toAddress);
+        var pubkeys = extractPubkeys(accountKeys);
+        var toAccountIndex = pubkeys.indexOf(toAddress);
         if (toAccountIndex < 0 || meta == null) {
             log.warn("Cannot resolve receiver account index for tx={}", txHash);
             return List.of();
@@ -121,6 +123,20 @@ class SolanaNativeTransferParser {
                 .build();
 
         return List.of(transfer);
+    }
+
+    private List<String> extractPubkeys(List<Object> accountKeys) {
+        return accountKeys.stream()
+                .map(key -> {
+                    if (key instanceof String s) {
+                        return s;
+                    }
+                    if (key instanceof Map<?, ?> m) {
+                        return String.valueOf(m.get("pubkey"));
+                    }
+                    return key.toString();
+                })
+                .toList();
     }
 
     private long computeReceivedLamports(SolanaTransactionMeta meta, int accountIndex) {

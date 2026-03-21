@@ -8,5 +8,5 @@ import java.util.List;
 @Builder(toBuilder = true)
 @JsonIgnoreProperties(ignoreUnknown = true)
 record SolanaTransactionMessage(
-        List<String> accountKeys,
+        List<Object> accountKeys,
         List<SolanaInstruction> instructions) {}

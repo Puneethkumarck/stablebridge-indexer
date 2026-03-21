@@ -9,5 +9,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 record SolanaInstruction(
         String programId,
+        String program,
         List<String> accounts,
-        String data) {}
+        Object data,
+        Object parsed) {}

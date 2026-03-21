@@ -2,6 +2,7 @@ package com.stablebridge.indexer.application.config;
 
 import com.stablebridge.indexer.application.properties.ChainProperties;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
+import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
@@ -12,7 +13,6 @@ import com.stablebridge.indexer.domain.service.BaseWorker;
 import com.stablebridge.indexer.domain.service.CatchupWorker;
 import com.stablebridge.indexer.domain.service.RegularWorker;
 import com.stablebridge.indexer.domain.service.RescanWorker;
-import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
@@ -39,6 +39,7 @@ public class IndexerOrchestrator implements SmartLifecycle {
     static final Duration RESCAN_INTERVAL = Duration.ofSeconds(300);
     static final Duration HEALTH_PROBE_INTERVAL = Duration.ofSeconds(60);
     private static final long TERMINATION_TIMEOUT_SECONDS = 25;
+    private static final Map<String, ChainId> NETWORK_ID_TO_CHAIN_ID = buildNetworkIdMap();
 
     private final List<ChainIndexer> chainIndexers;
     private final AddressFilter addressFilter;
@@ -176,17 +177,32 @@ public class IndexerOrchestrator implements SmartLifecycle {
 
     private ChainProperties resolveChainProperties(ChainIndexer chainIndexer) {
         return indexerProperties.chains().entrySet().stream()
-                .filter(entry -> {
-                    try {
-                        var chainId = EvmChainIndexerFactory.resolveChainId(entry.getKey());
-                        return chainId == chainIndexer.getChainId();
-                    } catch (IllegalArgumentException e) {
-                        return false;
-                    }
-                })
+                .filter(entry -> resolveChainId(entry.getKey()) == chainIndexer.getChainId())
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static ChainId resolveChainId(String networkId) {
+        return NETWORK_ID_TO_CHAIN_ID.get(networkId);
+    }
+
+    private static Map<String, ChainId> buildNetworkIdMap() {
+        return Map.ofEntries(
+                Map.entry("ethereum_mainnet", ChainId.ETHEREUM),
+                Map.entry("polygon_mainnet", ChainId.POLYGON),
+                Map.entry("arbitrum_mainnet", ChainId.ARBITRUM),
+                Map.entry("optimism_mainnet", ChainId.OPTIMISM),
+                Map.entry("base_mainnet", ChainId.BASE),
+                Map.entry("avalanche_mainnet", ChainId.AVALANCHE),
+                Map.entry("bsc_mainnet", ChainId.BSC),
+                Map.entry("sepolia", ChainId.SEPOLIA),
+                Map.entry("base_sepolia", ChainId.BASE_SEPOLIA),
+                Map.entry("solana_mainnet", ChainId.SOLANA_CHAIN),
+                Map.entry("solana_devnet", ChainId.SOLANA_DEVNET),
+                Map.entry("bitcoin_mainnet", ChainId.BITCOIN_CHAIN),
+                Map.entry("bitcoin_testnet", ChainId.BITCOIN_TESTNET)
+        );
     }
 
     private void runWorkerLoop(BaseWorker worker, Runnable task, Duration interval) {

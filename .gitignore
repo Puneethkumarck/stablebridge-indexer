@@ -31,6 +31,7 @@ IMPLEMENTATION_STATE.json
 **/CONTEXT.md
 docs/
 !docs/testnet-live-test.md
+!docs/testnet-live-test-solana.md
 
 # === Secrets & environment ===
 .env
