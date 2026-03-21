@@ -2,6 +2,7 @@ package com.stablebridge.indexer.application.config;
 
 import com.stablebridge.indexer.application.properties.ChainProperties;
 import com.stablebridge.indexer.application.properties.IndexerProperties;
+import com.stablebridge.indexer.domain.model.ChainId;
 import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import com.stablebridge.indexer.domain.port.BlockProgressStore;
@@ -12,7 +13,9 @@ import com.stablebridge.indexer.domain.service.BaseWorker;
 import com.stablebridge.indexer.domain.service.CatchupWorker;
 import com.stablebridge.indexer.domain.service.RegularWorker;
 import com.stablebridge.indexer.domain.service.RescanWorker;
+import com.stablebridge.indexer.infrastructure.chain.bitcoin.BitcoinChainIndexerFactory;
 import com.stablebridge.indexer.infrastructure.chain.evm.EvmChainIndexerFactory;
+import com.stablebridge.indexer.infrastructure.chain.solana.SolanaChainIndexerFactory;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
@@ -176,17 +179,29 @@ public class IndexerOrchestrator implements SmartLifecycle {
 
     private ChainProperties resolveChainProperties(ChainIndexer chainIndexer) {
         return indexerProperties.chains().entrySet().stream()
-                .filter(entry -> {
-                    try {
-                        var chainId = EvmChainIndexerFactory.resolveChainId(entry.getKey());
-                        return chainId == chainIndexer.getChainId();
-                    } catch (IllegalArgumentException e) {
-                        return false;
-                    }
-                })
+                .filter(entry -> resolveChainId(entry.getKey()) == chainIndexer.getChainId())
                 .map(Map.Entry::getValue)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private static ChainId resolveChainId(String networkId) {
+        try {
+            return EvmChainIndexerFactory.resolveChainId(networkId);
+        } catch (IllegalArgumentException e) {
+            // not EVM
+        }
+        try {
+            return SolanaChainIndexerFactory.resolveChainId(networkId);
+        } catch (IllegalArgumentException e) {
+            // not Solana
+        }
+        try {
+            return BitcoinChainIndexerFactory.resolveChainId(networkId);
+        } catch (IllegalArgumentException e) {
+            // not Bitcoin
+        }
+        return null;
     }
 
     private void runWorkerLoop(BaseWorker worker, Runnable task, Duration interval) {
