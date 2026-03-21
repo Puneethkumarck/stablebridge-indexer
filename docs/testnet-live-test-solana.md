@@ -112,7 +112,7 @@ RedisBloomAddressFilter - Added address to Redis bloom filter
 
 First attempted a native SOL airdrop via the [Solana Faucet](https://faucet.solana.com):
 
-![Solana Faucet Airdrop](../img/img.png)
+![Solana Faucet Airdrop](../img/solana_faucet_airdrop.png)
 
 **Result:** The airdrop was processed on-chain ([slot 450,020,908](https://explorer.solana.com/block/450020908?cluster=devnet)) but the indexer did **not** detect it:
 
@@ -134,7 +134,7 @@ Sent 20 USDC via the [Circle Testnet Faucet](https://faucet.circle.com):
 - Pasted wallet address: `BHxJCRSyqAY6Gu1R6sSQe3qqj81KHFzxbTfQZBoKL1Xe`
 - Clicked "Send 20 USDC"
 
-![Circle Faucet — Solana Devnet USDC](../img/img_1.png)
+![Circle Faucet — Solana Devnet USDC](../img/circle_faucet_solana_usdc.png)
 
 ---
 
@@ -146,7 +146,7 @@ The USDC transfer was confirmed on Solana Devnet:
 - **Slot:** 450,022,037
 - **Token Balances:** +20 USDC to wallet, -20 USDC from Circle faucet
 
-![Solana Explorer — Token Balances](../img/img_2.png)
+![Solana Explorer — Token Balances](../img/solana_explorer_token_balances.png)
 
 | Field | Value |
 |-------|-------|
