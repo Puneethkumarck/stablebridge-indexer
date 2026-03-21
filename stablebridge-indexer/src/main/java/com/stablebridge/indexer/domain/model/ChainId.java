@@ -13,8 +13,12 @@ public enum ChainId {
     BASE(EVM),
     AVALANCHE(EVM),
     BSC(EVM),
+    SEPOLIA(EVM),
+    BASE_SEPOLIA(EVM),
     SOLANA_CHAIN(SOLANA),
-    BITCOIN_CHAIN(BITCOIN);
+    SOLANA_DEVNET(SOLANA),
+    BITCOIN_CHAIN(BITCOIN),
+    BITCOIN_TESTNET(BITCOIN);
 
     private final NetworkType networkType;
 

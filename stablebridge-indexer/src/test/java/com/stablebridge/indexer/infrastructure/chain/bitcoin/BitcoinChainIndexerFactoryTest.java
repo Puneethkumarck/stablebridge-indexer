@@ -60,12 +60,12 @@ class BitcoinChainIndexerFactoryTest {
         @DisplayName("throws for unknown network ID")
         void throwsForUnknownNetworkId() {
             // given
-            var unknownNetworkId = "bitcoin_testnet";
+            var unknownNetworkId = "bitcoin_regtest";
 
             // when / then
             assertThatThrownBy(() -> BitcoinChainIndexerFactory.resolveChainId(unknownNetworkId))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Unknown Bitcoin network ID: 'bitcoin_testnet'");
+                    .hasMessageContaining("Unknown Bitcoin network ID: 'bitcoin_regtest'");
         }
     }
 

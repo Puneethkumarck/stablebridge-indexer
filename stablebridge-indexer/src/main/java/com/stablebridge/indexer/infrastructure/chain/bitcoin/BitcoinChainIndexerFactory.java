@@ -12,7 +12,8 @@ import java.util.Map;
 public class BitcoinChainIndexerFactory {
 
     private static final Map<String, ChainId> NETWORK_ID_TO_CHAIN_ID = Map.of(
-            "bitcoin_mainnet", ChainId.BITCOIN_CHAIN);
+            "bitcoin_mainnet", ChainId.BITCOIN_CHAIN,
+            "bitcoin_testnet", ChainId.BITCOIN_TESTNET);
 
     public static ChainIndexer create(BitcoinChainConfig config) {
         var chainId = resolveChainId(config.networkId());
