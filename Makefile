@@ -42,13 +42,32 @@ up: docker-build ## Build image, start infra + app (mainnet)
 	docker compose --profile app up -d
 	@echo "Waiting for app to be healthy..."
 	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
-	@echo "Application ready at http://localhost:8080"
+	@$(MAKE) --no-print-directory _print-urls
 
 up-testnet: docker-build ## Build image, start infra + app (testnet profile)
 	SPRING_PROFILES_ACTIVE=testnet docker compose --profile app up -d
 	@echo "Waiting for app to be healthy..."
 	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
-	@echo "Application ready at http://localhost:8080 (testnet)"
+	@$(MAKE) --no-print-directory _print-urls PROFILE=testnet
+
+_print-urls:
+	@echo ""
+	@echo "============================================"
+	@echo " StableBridge Indexer is running $(if $(PROFILE),($(PROFILE)),)"
+	@echo "============================================"
+	@echo ""
+	@echo " App API:           http://localhost:8080/api/v1/status"
+	@echo " Actuator Health:   http://localhost:8081/actuator/health"
+	@echo " Prometheus Metrics: http://localhost:8081/actuator/prometheus"
+	@echo ""
+	@echo " Redpanda Console:  http://localhost:9090"
+	@echo " Redis Insight:     http://localhost:8001"
+	@echo " Prometheus:        http://localhost:9091"
+	@echo " Grafana:           http://localhost:3000  (admin/admin)"
+	@echo ""
+	@echo " API Key Header:    X-API-Key: $${INDEXER_API_KEY:-change-me}"
+	@echo "============================================"
+	@echo ""
 
 down: ## Stop everything (app + infra)
 	docker compose --profile app down
