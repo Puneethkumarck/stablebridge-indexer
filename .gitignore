@@ -30,6 +30,7 @@ IMPLEMENTATION_STATE.md
 IMPLEMENTATION_STATE.json
 **/CONTEXT.md
 docs/
+!docs/testnet-live-test.md
 
 # === Secrets & environment ===
 .env

@@ -25,17 +25,17 @@ indexer:
       confirmation-strategy: finalized
       index-native-transfers: true
       native-decimals: 18
-      start-block: 0
-      poll-interval: 12s
-      batch-size: 5
+      start-block: ${SEPOLIA_START_BLOCK:8000000}                          # 0 = start from latest finalized
+      poll-interval: 5s                       # faster to catch up
+      batch-size: 3                           # process 3 blocks per poll
       rpc:
         urls:
           - ${SEPOLIA_RPC_URL:https://eth-sepolia.g.alchemy.com/v2/demo}
         timeout: 15s
         max-retries: 3
-        rate-limit-rps: 10
-        rate-limit-burst: 20
-        batch-size: 50
+        rate-limit-rps: 5                     # Alchemy free tier: ~330 CU/s shared
+        rate-limit-burst: 10
+        batch-size: 20                        # smaller batches
         use-block-receipts: false
       token-contracts:
         - address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
@@ -47,23 +47,23 @@ indexer:
 
     # --- EVM: Base Sepolia ---
     base_sepolia:
-      enabled: true
+      enabled: false                          # Enable one chain at a time on free tier
       type: evm
       confirmation-strategy: confirmations
       min-confirmations: 5
       index-native-transfers: true
       native-decimals: 18
-      start-block: 0
-      poll-interval: 2s
-      batch-size: 10
+      start-block: ${BASE_SEPOLIA_START_BLOCK:39000000}
+      poll-interval: 10s
+      batch-size: 1
       rpc:
         urls:
           - ${BASE_SEPOLIA_RPC_URL:https://base-sepolia.g.alchemy.com/v2/demo}
         timeout: 15s
         max-retries: 3
-        rate-limit-rps: 10
-        rate-limit-burst: 20
-        batch-size: 50
+        rate-limit-rps: 3
+        rate-limit-burst: 5
+        batch-size: 20
         use-block-receipts: true
       token-contracts:
         - address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
@@ -72,14 +72,14 @@ indexer:
 
     # --- Solana Devnet ---
     solana_devnet:
-      enabled: true
+      enabled: false                          # Enable separately to avoid Alchemy rate limit
       type: solana
       confirmation-strategy: finalized
       index-native-transfers: true
       native-decimals: 9
-      start-block: 0
-      poll-interval: 1s
-      batch-size: 5
+      start-block: ${SOLANA_DEVNET_START_BLOCK:350000000}
+      poll-interval: 5s
+      batch-size: 1
       rpc:
         urls:
           - ${SOLANA_DEVNET_RPC_URL:https://api.devnet.solana.com}
@@ -97,7 +97,7 @@ indexer:
       min-confirmations: 1
       index-native-transfers: true
       native-decimals: 8
-      start-block: 0
+      start-block: ${BITCOIN_TESTNET_START_BLOCK:900000}
       poll-interval: 30s
       batch-size: 3
       rpc:

@@ -21,17 +21,18 @@ public class WalletCommandHandler {
     private final AddressFilter addressFilter;
 
     public WalletAddress addWallet(String address, NetworkType networkType, String label) {
+        var normalizedAddress = address.toLowerCase();
         var walletAddress = WalletAddress.builder()
-                .address(address)
+                .address(normalizedAddress)
                 .networkType(networkType)
                 .label(label)
                 .active(true)
                 .build();
 
         var saved = walletAddressRepository.save(walletAddress);
-        addressFilter.add(address, networkType);
+        addressFilter.add(normalizedAddress, networkType);
 
-        log.info("Added wallet address — address={}, networkType={}, label={}", address, networkType, label);
+        log.info("Added wallet address — address={}, networkType={}, label={}", normalizedAddress, networkType, label);
         return saved;
     }
 

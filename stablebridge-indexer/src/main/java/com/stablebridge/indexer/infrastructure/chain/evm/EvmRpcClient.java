@@ -116,7 +116,9 @@ class EvmRpcClient {
 
     private <T> T sendSingleRequest(JsonRpcRequest request, Class<T> resultType) {
         var body = serializeRequest(request);
+        log.debug("RPC request: method={}, params={}", request.method(), request.params());
         var httpResponse = executeHttpPost(body, request.method());
+        log.debug("RPC response: method={}, length={}", request.method(), httpResponse.length());
 
         var typeRef = JSON_MAPPER.getTypeFactory()
                 .constructParametricType(JsonRpcResponse.class, resultType);

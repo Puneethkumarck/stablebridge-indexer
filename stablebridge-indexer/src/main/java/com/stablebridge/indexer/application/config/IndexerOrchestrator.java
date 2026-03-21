@@ -92,17 +92,14 @@ public class IndexerOrchestrator implements SmartLifecycle {
         log.info("IndexerOrchestrator shutdown initiated — stopping {} worker(s)", workers.size());
 
         workers.forEach(BaseWorker::stop);
-        executor.shutdown();
+        executor.shutdownNow();
 
         try {
             if (!executor.awaitTermination(TERMINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                log.warn("Executor did not terminate within {}s — forcing shutdown",
-                        TERMINATION_TIMEOUT_SECONDS);
-                executor.shutdownNow();
+                log.warn("Executor did not terminate within {}s", TERMINATION_TIMEOUT_SECONDS);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            executor.shutdownNow();
         }
 
         running.set(false);

@@ -1,5 +1,6 @@
 .PHONY: help build test integration-test clean run run-testnet \
        infra-up infra-down infra-status infra-logs \
+       up up-testnet down \
        smoke-test api-test register-wallet check-status \
        docker-build terraform-init terraform-up terraform-down
 
@@ -35,6 +36,43 @@ run-testnet: ## Run with testnet profile (Sepolia, Base Sepolia, Solana Devnet)
 	./gradlew :stablebridge-indexer:bootRun --args='--spring.profiles.active=testnet'
 
 # ---------------------------------------------------------------------------
+# One-command up/down (infra + app in containers)
+# ---------------------------------------------------------------------------
+up: docker-build ## Build image, start infra + app (mainnet)
+	docker compose --profile app up -d
+	@echo "Waiting for app to be healthy..."
+	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
+	@$(MAKE) --no-print-directory _print-urls
+
+up-testnet: docker-build ## Build image, start infra + app (testnet profile)
+	SPRING_PROFILES_ACTIVE=testnet docker compose --profile app up -d
+	@echo "Waiting for app to be healthy..."
+	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
+	@$(MAKE) --no-print-directory _print-urls PROFILE=testnet
+
+_print-urls:
+	@echo ""
+	@echo "============================================"
+	@echo " StableBridge Indexer is running $(if $(PROFILE),($(PROFILE)),)"
+	@echo "============================================"
+	@echo ""
+	@echo " App API:           http://localhost:8080/api/v1/status"
+	@echo " Actuator Health:   http://localhost:8081/actuator/health"
+	@echo " Prometheus Metrics: http://localhost:8081/actuator/prometheus"
+	@echo ""
+	@echo " Redpanda Console:  http://localhost:9090"
+	@echo " Redis Insight:     http://localhost:8001"
+	@echo " Prometheus:        http://localhost:9091"
+	@echo " Grafana:           http://localhost:3000  (admin/admin)"
+	@echo ""
+	@echo " API Key Header:    X-API-Key: $${INDEXER_API_KEY:-change-me}"
+	@echo "============================================"
+	@echo ""
+
+down: ## Stop everything (app + infra)
+	docker compose --profile app down
+
+# ---------------------------------------------------------------------------
 # Docker Compose Infrastructure
 # ---------------------------------------------------------------------------
 infra-up: ## Start local infrastructure (PostgreSQL, Redis, Redpanda, Prometheus, Grafana)
@@ -61,17 +99,32 @@ terraform-init: ## Initialize Terraform (local Docker provider)
 terraform-plan: ## Show Terraform execution plan
 	cd infra/terraform && terraform plan
 
-terraform-up: ## Provision local infrastructure via Terraform
+terraform-up: docker-build ## Build image + provision all infra + app via Terraform
 	cd infra/terraform && terraform apply -auto-approve
+	@echo "Waiting for app to be healthy..."
+	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
+	@$(MAKE) --no-print-directory _print-urls
 
-terraform-down: ## Destroy Terraform-managed infrastructure
+terraform-up-testnet: docker-build ## Build image + provision via Terraform (testnet)
+	cd infra/terraform && terraform apply -auto-approve \
+		-var-file=testnet.tfvars \
+		-var="sepolia_rpc_url=$${SEPOLIA_RPC_URL}" \
+		-var="base_sepolia_rpc_url=$${BASE_SEPOLIA_RPC_URL:-https://base-sepolia.g.alchemy.com/v2/demo}" \
+		-var="indexer_api_key=$${INDEXER_API_KEY:-change-me}"
+	@echo "Waiting for app to be healthy..."
+	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
+	@$(MAKE) --no-print-directory _print-urls PROFILE=testnet
+
+terraform-down: ## Destroy all Terraform-managed containers
 	cd infra/terraform && terraform destroy -auto-approve
 
 # ---------------------------------------------------------------------------
 # Docker Image
 # ---------------------------------------------------------------------------
 docker-build: ## Build production Docker image via Jib
-	./gradlew :stablebridge-indexer:jibDockerBuild
+	./gradlew :stablebridge-indexer:jibDockerBuild \
+		-Djib.applicationCache=/tmp/jib-cache \
+		-Djib.baseImageCache=/tmp/jib-base-cache
 
 # ---------------------------------------------------------------------------
 # Testnet Operations

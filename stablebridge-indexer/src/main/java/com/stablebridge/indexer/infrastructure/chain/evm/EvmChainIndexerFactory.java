@@ -20,7 +20,9 @@ public class EvmChainIndexerFactory {
             "optimism_mainnet", ChainId.OPTIMISM,
             "base_mainnet", ChainId.BASE,
             "avalanche_mainnet", ChainId.AVALANCHE,
-            "bsc_mainnet", ChainId.BSC
+            "bsc_mainnet", ChainId.BSC,
+            "sepolia", ChainId.SEPOLIA,
+            "base_sepolia", ChainId.BASE_SEPOLIA
     );
 
     public static ChainIndexer create(EvmChainConfig config, MeterRegistry meterRegistry) {

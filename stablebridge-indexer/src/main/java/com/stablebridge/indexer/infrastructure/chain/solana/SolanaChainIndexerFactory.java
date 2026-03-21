@@ -13,7 +13,8 @@ import java.util.Map;
 public class SolanaChainIndexerFactory {
 
     private static final Map<String, ChainId> NETWORK_ID_TO_CHAIN_ID = Map.of(
-            "solana_mainnet", ChainId.SOLANA_CHAIN
+            "solana_mainnet", ChainId.SOLANA_CHAIN,
+            "solana_devnet", ChainId.SOLANA_DEVNET
     );
 
     public static ChainIndexer create(SolanaChainConfig config) {
