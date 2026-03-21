@@ -1,6 +1,6 @@
 <configuration>
 
-    <springProfile name="dev | default">
+    <springProfile name="dev | default | testnet">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
