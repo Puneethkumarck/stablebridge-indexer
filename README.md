@@ -378,17 +378,20 @@ make integration-test   # Integration tests (requires Docker services)
 make clean              # Clean build artifacts
 ```
 
-### Run
+### Run (one command)
 
 ```bash
-make run                # Run with default profile (mainnet)
-make run-testnet        # Run with testnet profile (Sepolia, Base Sepolia, Solana Devnet)
+make up                 # Start infra + app (waits for DB/Redis to be ready)
+make up-testnet         # Start infra + app with testnet profile
+make down               # Stop app + infra in one shot
 ```
 
-### Infrastructure
+### Run (separate control)
 
 ```bash
 make infra-up           # Start PostgreSQL, Redis, Redpanda, Prometheus, Grafana
+make run                # Run app with default profile (mainnet)
+make run-testnet        # Run app with testnet profile
 make infra-down         # Stop all containers
 make infra-clean        # Stop + delete all volumes
 make infra-status       # Show container status

@@ -1,5 +1,6 @@
 .PHONY: help build test integration-test clean run run-testnet \
        infra-up infra-down infra-status infra-logs \
+       up up-testnet down \
        smoke-test api-test register-wallet check-status \
        docker-build terraform-init terraform-up terraform-down
 
@@ -33,6 +34,31 @@ run: ## Run with default profile (mainnet config)
 
 run-testnet: ## Run with testnet profile (Sepolia, Base Sepolia, Solana Devnet)
 	./gradlew :stablebridge-indexer:bootRun --args='--spring.profiles.active=testnet'
+
+# ---------------------------------------------------------------------------
+# One-command up/down (infra + app)
+# ---------------------------------------------------------------------------
+up: ## Start infra + app (mainnet)
+	docker compose up -d
+	@echo "Waiting for infrastructure to be ready..."
+	@until docker exec indexer-redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
+	@until docker exec indexer-postgres pg_isready -U indexer 2>/dev/null; do sleep 1; done
+	@echo "Infrastructure ready. Starting application..."
+	./gradlew :stablebridge-indexer:bootRun
+
+up-testnet: ## Start infra + app (testnet profile)
+	docker compose up -d
+	@echo "Waiting for infrastructure to be ready..."
+	@until docker exec indexer-redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
+	@until docker exec indexer-postgres pg_isready -U indexer 2>/dev/null; do sleep 1; done
+	@echo "Infrastructure ready. Starting application (testnet)..."
+	./gradlew :stablebridge-indexer:bootRun --args='--spring.profiles.active=testnet'
+
+down: ## Stop app + infra + clean up
+	@echo "Stopping application..."
+	@-pkill -f 'stablebridge-indexer' 2>/dev/null || true
+	@echo "Stopping infrastructure..."
+	docker compose down
 
 # ---------------------------------------------------------------------------
 # Docker Compose Infrastructure
