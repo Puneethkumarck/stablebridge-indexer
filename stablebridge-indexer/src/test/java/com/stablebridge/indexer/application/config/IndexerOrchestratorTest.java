@@ -72,7 +72,6 @@ class IndexerOrchestratorTest {
      * non-deterministic, so these stubs must be lenient.
      */
     private void stubBackgroundWorkerDefaults() {
-        lenient().when(chainIndexer.getLatestFinalizedBlockNumber()).thenReturn(-1L);
         lenient().when(blockProgressStore.getCatchupRanges(ETHEREUM)).thenReturn(Map.of());
         lenient().when(blockProgressStore.getFailedBlocks(ETHEREUM)).thenReturn(Set.of());
     }
@@ -135,14 +134,16 @@ class IndexerOrchestratorTest {
 
         @Test
         @DisplayName("stops all workers on shutdown")
-        void stopsAllWorkersOnShutdown() {
+        void stopsAllWorkersOnShutdown() throws InterruptedException {
             // given
             stubEmptyWalletAddresses();
             orchestrator = createOrchestrator(List.of(chainIndexer));
             orchestrator.start();
+            Thread.sleep(50); // let worker threads start before stopping
 
             // when
             orchestrator.stop();
+            Thread.sleep(50); // let worker threads finish stopping
 
             // then
             assertThat(orchestrator.getWorkers())

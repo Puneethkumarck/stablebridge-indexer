@@ -145,13 +145,10 @@ public class IndexerOrchestrator implements SmartLifecycle {
             return;
         }
 
-        var startBlock = chainProps.startBlock() > 0
-                ? chainProps.startBlock()
-                : chainIndexer.getLatestFinalizedBlockNumber();
         var regularWorker = new RegularWorker(
                 chainIndexer, addressFilter, transferEventPublisher,
                 blockProgressStore, walletAddressRepository, meterRegistry,
-                chainProps.pollInterval(), chainProps.batchSize(), startBlock);
+                chainProps.pollInterval(), chainProps.batchSize(), chainProps.startBlock());
 
         var catchupWorker = new CatchupWorker(
                 chainIndexer, addressFilter, transferEventPublisher,
