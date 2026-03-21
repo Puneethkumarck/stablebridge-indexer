@@ -10,6 +10,11 @@ services:
       POSTGRES_PASSWORD: indexer
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U indexer -d indexer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
@@ -20,6 +25,11 @@ services:
       - "8001:8001"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redpanda:
@@ -51,6 +61,46 @@ services:
     depends_on:
       - redpanda
     restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Application (requires: make docker-build first)
+  # ---------------------------------------------------------------------------
+  app:
+    image: stablebridge/indexer:latest
+    container_name: indexer-app
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/indexer
+      SPRING_DATASOURCE_USERNAME: indexer
+      SPRING_DATASOURCE_PASSWORD: indexer
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      INDEXER_API_KEY: ${INDEXER_API_KEY:-change-me}
+      ETHEREUM_RPC_URL: ${ETHEREUM_RPC_URL:-https://eth-mainnet.g.alchemy.com/v2/demo}
+      # Testnet RPC URLs (used when SPRING_PROFILES_ACTIVE=testnet)
+      SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL:-https://eth-sepolia.g.alchemy.com/v2/demo}
+      BASE_SEPOLIA_RPC_URL: ${BASE_SEPOLIA_RPC_URL:-https://base-sepolia.g.alchemy.com/v2/demo}
+      SOLANA_DEVNET_RPC_URL: ${SOLANA_DEVNET_RPC_URL:-https://api.devnet.solana.com}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    profiles:
+      - app
 
   prometheus:
     image: prom/prometheus:v3.4.0

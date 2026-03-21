@@ -36,29 +36,22 @@ run-testnet: ## Run with testnet profile (Sepolia, Base Sepolia, Solana Devnet)
 	./gradlew :stablebridge-indexer:bootRun --args='--spring.profiles.active=testnet'
 
 # ---------------------------------------------------------------------------
-# One-command up/down (infra + app)
+# One-command up/down (infra + app in containers)
 # ---------------------------------------------------------------------------
-up: ## Start infra + app (mainnet)
-	docker compose up -d
-	@echo "Waiting for infrastructure to be ready..."
-	@until docker exec indexer-redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
-	@until docker exec indexer-postgres pg_isready -U indexer 2>/dev/null; do sleep 1; done
-	@echo "Infrastructure ready. Starting application..."
-	./gradlew :stablebridge-indexer:bootRun
+up: docker-build ## Build image, start infra + app (mainnet)
+	docker compose --profile app up -d
+	@echo "Waiting for app to be healthy..."
+	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
+	@echo "Application ready at http://localhost:8080"
 
-up-testnet: ## Start infra + app (testnet profile)
-	docker compose up -d
-	@echo "Waiting for infrastructure to be ready..."
-	@until docker exec indexer-redis redis-cli ping 2>/dev/null | grep -q PONG; do sleep 1; done
-	@until docker exec indexer-postgres pg_isready -U indexer 2>/dev/null; do sleep 1; done
-	@echo "Infrastructure ready. Starting application (testnet)..."
-	./gradlew :stablebridge-indexer:bootRun --args='--spring.profiles.active=testnet'
+up-testnet: docker-build ## Build image, start infra + app (testnet profile)
+	SPRING_PROFILES_ACTIVE=testnet docker compose --profile app up -d
+	@echo "Waiting for app to be healthy..."
+	@until curl -sf http://localhost:8081/actuator/health > /dev/null 2>&1; do sleep 2; done
+	@echo "Application ready at http://localhost:8080 (testnet)"
 
-down: ## Stop app + infra + clean up
-	@echo "Stopping application..."
-	@-pkill -f 'stablebridge-indexer' 2>/dev/null || true
-	@echo "Stopping infrastructure..."
-	docker compose down
+down: ## Stop everything (app + infra)
+	docker compose --profile app down
 
 # ---------------------------------------------------------------------------
 # Docker Compose Infrastructure
