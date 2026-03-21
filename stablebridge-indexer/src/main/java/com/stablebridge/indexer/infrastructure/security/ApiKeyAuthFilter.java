@@ -57,6 +57,12 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             return;
         }
 
+        log.debug("API request: method={}, path={}, remoteAddr={}",
+                request.getMethod(), request.getRequestURI(), request.getRemoteAddr());
+
         filterChain.doFilter(request, response);
+
+        log.debug("API response: method={}, path={}, status={}",
+                request.getMethod(), request.getRequestURI(), response.getStatus());
     }
 }

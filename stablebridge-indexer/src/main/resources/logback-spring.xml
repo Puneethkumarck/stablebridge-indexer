@@ -1,6 +1,6 @@
 <configuration>
 
-    <springProfile name="dev | default | testnet">
+    <springProfile name="dev | default">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -9,6 +9,26 @@
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
+    </springProfile>
+
+    <springProfile name="testnet">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        <!-- RPC request/response logging -->
+        <logger name="com.stablebridge.indexer.infrastructure.chain" level="DEBUG"/>
+        <!-- API request logging -->
+        <logger name="com.stablebridge.indexer.application.controller" level="DEBUG"/>
+        <logger name="com.stablebridge.indexer.infrastructure.security" level="DEBUG"/>
+        <!-- Kafka publishing -->
+        <logger name="com.stablebridge.indexer.infrastructure.messaging" level="DEBUG"/>
+        <!-- Bloom filter -->
+        <logger name="com.stablebridge.indexer.infrastructure.bloom" level="DEBUG"/>
     </springProfile>
 
     <springProfile name="prod | staging">
