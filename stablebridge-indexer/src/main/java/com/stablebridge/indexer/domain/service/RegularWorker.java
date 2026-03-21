@@ -50,9 +50,8 @@ public class RegularWorker extends BaseWorker {
 
     public void poll() {
         var latestFinalized = getChainIndexer().getLatestFinalizedBlockNumber();
-        var defaultStart = startBlock > 0 ? startBlock - 1 : latestFinalized - 1;
         var lastProcessed = getBlockProgressStore().getLastProcessedBlock(getChainId())
-                .orElse(defaultStart);
+                .orElse(startBlock - 1);
         var fromBlock = lastProcessed + 1;
         var toBlock = Math.min(fromBlock + batchSize - 1, latestFinalized);
 
