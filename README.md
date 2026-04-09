@@ -14,7 +14,7 @@
 
 **Multichain stablecoin deposit detection — index finalized blocks across EVM, Solana, and Bitcoin with zero false positives and at-least-once delivery guarantees**
 
-[Architecture](#-architecture) | [Quick Start](#-quick-start) | [API Reference](#-api-reference) | [Configuration](#-configuration) | [Design Decisions](#-key-design-decisions)
+[Why an Indexer?](#why-do-you-need-a-blockchain-indexer) | [Understanding the Chains](#understanding-the-chains) | [Architecture](#architecture) | [Quick Start](#quick-start) | [API Reference](#api-reference) | [Configuration](#configuration) | [Design Decisions](#key-design-decisions)
 
 </div>
 
@@ -44,6 +44,278 @@ Real-time stablecoin deposit detection across three chain types, ready for payme
 | **Recovery** | Auto-healing workers (PARKED -> RUNNING) |
 
 </div>
+
+---
+
+## Why Do You Need a Blockchain Indexer?
+
+Blockchains are **append-only ledgers**. Every transaction ever made is stored on-chain — but there's no built-in way to ask "did anyone send USDC to my wallet in the last 5 minutes?"
+
+### The naive approach (and why it fails)
+
+```
+Your App  ──→  "Hey Ethereum, any deposits to 0xABC?"
+Ethereum  ──→  "I don't know. Here's block #21,000,000. You figure it out."
+```
+
+Blockchains expose raw blocks via **RPC endpoints** (`eth_getBlockByNumber`, `getBlock`, `getblockheader`). Each block contains hundreds of transactions, and each transaction can contain dozens of internal operations. To find *your* deposits, you'd need to:
+
+1. **Poll every new block** — Ethereum produces one every ~12 seconds, Solana every ~400ms
+2. **Download every transaction** — including receipts with event logs (EVM) or full instruction data (Solana)
+3. **Parse and decode** — ERC-20 transfers are encoded as hex event logs, Bitcoin uses UTXO linking, Solana uses balance differentials
+4. **Match against your wallets** — check every transfer recipient against your registered addresses
+5. **Handle failures** — RPC rate limits, network outages, node restarts
+
+Doing this correctly across multiple chains, with zero missed deposits and zero false positives, at production scale — that's what an indexer does.
+
+### What the indexer replaces
+
+```mermaid
+flowchart LR
+    subgraph Without["Without Indexer"]
+        direction TB
+        A1["Your app polls RPC<br/>every N seconds"] --> A2["Downloads full blocks"]
+        A2 --> A3["Parses raw hex data"]
+        A3 --> A4["Scans ALL transfers"]
+        A4 --> A5["Checks against DB<br/>for every transfer"]
+        A5 --> A6["Slow, expensive,<br/>misses deposits on crash"]
+    end
+
+    subgraph With["With StableBridge Indexer"]
+        direction TB
+        B1["Workers poll<br/>finalized blocks"] --> B2["Chain-specific parsers<br/>decode transfers"]
+        B2 --> B3["Bloom filter rejects<br/>99.9% in sub-ms"]
+        B3 --> B4["DB confirms<br/>the 0.1% hits"]
+        B4 --> B5["Kafka event delivered<br/>at-least-once"]
+    end
+
+    Without ~~~ With
+```
+
+---
+
+## Understanding the Chains
+
+StableBridge indexes three fundamentally different blockchain architectures. Each has its own transaction model, finality mechanism, and way of representing token transfers.
+
+### EVM Chains (Ethereum, Base)
+
+EVM chains use an **account-based model** where each address has a balance, and transactions modify balances directly.
+
+```mermaid
+flowchart TB
+    subgraph Block["Block #21,000,000"]
+        direction TB
+        TX1["Transaction 0x123...<br/><i>from: 0xSender</i><br/><i>to: USDC contract</i>"]
+        subgraph Receipt["Transaction Receipt"]
+            LOG["Event Log<br/>topic[0]: Transfer(address,address,uint256)<br/>topic[1]: 0xSender (from)<br/>topic[2]: 0xMerchant (to)<br/>data: 50000000 (50 USDC)"]
+        end
+        TX1 --> Receipt
+    end
+
+    style LOG fill:#e3f2fd
+```
+
+**Key concepts:**
+
+| Concept | What It Is | Example |
+|---------|-----------|---------|
+| **Block** | A batch of transactions validated together | Block #21,000,000 with ~150 transactions |
+| **Transaction** | A signed instruction to the blockchain | "Call USDC contract's `transfer()` function" |
+| **Receipt** | The result of executing a transaction | Status (success/fail) + event logs |
+| **Event log** | A structured event emitted by a smart contract | `Transfer(from, to, amount)` with indexed topics |
+| **ERC-20** | Token standard with a `Transfer` event signature | `0xddf252ad...` — keccak256 of `Transfer(address,address,uint256)` |
+| **Finality** | When a block can never be reversed | Ethereum: `finalized` tag (~13 min), Base: 10 confirmations |
+
+**How the indexer parses EVM transfers:**
+
+The `EvmErc20TransferParser` scans every receipt log looking for the ERC-20 Transfer event signature. Only logs from **whitelisted token contracts** (USDC, USDT, DAI, PYUSD, EURC) are processed — unknown tokens are skipped entirely.
+
+```
+Receipt Log                          Decoded Transfer
+─────────────────────               ──────────────────
+topic[0]: 0xddf252ad...  ─────→    Event: Transfer (ERC-20)
+topic[1]: 0x000...sender  ─────→    From:  0xSender
+topic[2]: 0x000...merchant ────→    To:    0xMerchant
+data:     0x00...02faf080  ────→    Amount: 50,000,000 raw → 50.0 USDC (6 decimals)
+log address: 0xA0b8...eB48 ───→    Token:  USDC contract (whitelisted ✓)
+```
+
+### Solana
+
+Solana uses an **account-based model** like EVM but with a fundamentally different execution model. Instead of event logs, transfers are detected by **comparing token balances before and after** a transaction.
+
+```mermaid
+flowchart TB
+    subgraph Slot["Slot 280,000,000"]
+        direction TB
+        TX["Transaction (signature: 5Kx7a...)<br/><i>Signed by sender wallet</i>"]
+        subgraph Meta["Transaction Metadata"]
+            PRE["Pre-Token Balances<br/>Owner: SenderWallet → 100.0 USDC<br/>Owner: MerchantWallet → 200.0 USDC"]
+            POST["Post-Token Balances<br/>Owner: SenderWallet → 50.0 USDC<br/>Owner: MerchantWallet → 250.0 USDC"]
+        end
+        TX --> Meta
+    end
+
+    style PRE fill:#ffebee
+    style POST fill:#e8f5e9
+```
+
+**Key concepts:**
+
+| Concept | What It Is | EVM Equivalent |
+|---------|-----------|----------------|
+| **Slot** | A time window (~400ms) where a validator can produce a block | Block (but faster — ~150 slots/minute) |
+| **Transaction** | An atomic set of instructions signed by one or more wallets | Transaction |
+| **Instruction** | A single operation within a transaction (e.g., "transfer 50 USDC") | Internal transaction / contract call |
+| **SPL Token** | Solana's token standard (like ERC-20 for EVM) | ERC-20 |
+| **Mint address** | The token's identity on Solana | Token contract address |
+| **Token account** | A separate account that holds a specific token for a wallet | Balance within ERC-20 contract |
+| **Finality** | Solana's `finalized` commitment (~6.4 seconds) | Ethereum's `finalized` tag |
+
+**How the indexer parses Solana transfers:**
+
+The `SolanaSpITransferParser` doesn't look for event logs — instead, it **compares pre-transaction and post-transaction token balances** for whitelisted mint addresses. If a wallet's USDC balance increased, that's an inbound transfer.
+
+```
+Pre-Token Balances                  Post-Token Balances
+──────────────────                  ───────────────────
+MerchantWallet: 200.0 USDC         MerchantWallet: 250.0 USDC  ← increased by 50
+SenderWallet:   100.0 USDC         SenderWallet:    50.0 USDC  ← decreased by 50
+
+Detected: SenderWallet sent 50 USDC to MerchantWallet
+```
+
+For **native SOL transfers**, the `SolanaNativeTransferParser` looks for instructions targeting the System Program (`1111...1111`) and computes lamport differences from pre/post balances (1 SOL = 10^9 lamports).
+
+### Bitcoin
+
+Bitcoin uses a fundamentally different model: **UTXO (Unspent Transaction Output)**. There are no accounts or balances — only a chain of inputs and outputs.
+
+```mermaid
+flowchart LR
+    subgraph PrevTx["Previous Transaction"]
+        UTXO["Output #0<br/>0.5 BTC → AddressA"]
+    end
+
+    subgraph CurrentTx["Current Transaction"]
+        VIN["Input (vin)<br/><i>Spends PrevTx Output #0</i><br/>From: AddressA"]
+        VOUT0["Output #0 (vout)<br/>0.3 BTC → MerchantAddr"]
+        VOUT1["Output #1 (vout)<br/>0.1999 BTC → AddressA<br/><i>(change back to sender)</i>"]
+        FEE["Fee: 0.0001 BTC<br/><i>(implicit: inputs - outputs)</i>"]
+    end
+
+    UTXO -->|"spent by"| VIN
+    VIN --> VOUT0
+    VIN --> VOUT1
+    VIN -.-> FEE
+```
+
+**Key concepts:**
+
+| Concept | What It Is | EVM/Solana Equivalent |
+|---------|-----------|----------------------|
+| **UTXO** | An unspent output from a previous transaction — like a specific banknote | Account balance (but discrete, not aggregated) |
+| **Input (vin)** | References and spends a previous UTXO | "From" address |
+| **Output (vout)** | Creates a new UTXO — the recipient and amount | "To" address + amount |
+| **scriptPubKey** | The locking script that defines who can spend an output | Account ownership |
+| **Prevout** | The previous output being spent by an input | N/A (accounts have running balances) |
+| **Change output** | Leftover UTXO sent back to the sender | N/A (exact amounts in EVM/Solana) |
+| **Coinbase tx** | Mining reward transaction (no inputs) — skipped by indexer | N/A |
+| **Finality** | 6 confirmations (~60 minutes) | Ethereum: ~13 min, Solana: ~6 seconds |
+
+**How the indexer parses Bitcoin transfers:**
+
+The `BitcoinTransferParser` processes each transaction's outputs (vout). For each output, it extracts the recipient address from the `scriptPubKey` and the BTC amount. The sender is resolved from the first input's `prevout` (the previous transaction's output that's being spent). Coinbase transactions (mining rewards) are skipped.
+
+```
+Transaction abc123...
+├── vin[0]:  spends previous tx output → prevout.address = "bc1qSender"
+├── vout[0]: 0.30000000 BTC → scriptPubKey.address = "bc1qMerchant"  ← indexed
+├── vout[1]: 0.19990000 BTC → scriptPubKey.address = "bc1qSender"    ← change (indexed if watched)
+└── fee:     0.00010000 BTC (implicit)
+
+Detected: bc1qSender sent 0.3 BTC to bc1qMerchant (if bc1qMerchant is a watched address)
+```
+
+---
+
+## Finality: When Is a Deposit "Real"?
+
+The single most important concept for a payment indexer is **finality** — when can you guarantee that a transaction will never be reversed?
+
+```mermaid
+flowchart LR
+    subgraph ETH["Ethereum"]
+        E1["Block produced"] --> E2["~13 minutes"] --> E3["'finalized' tag<br/>by consensus"]
+    end
+
+    subgraph BASE["Base (L2)"]
+        B1["Block produced"] --> B2["~20 seconds"] --> B3["10 confirmations<br/>on top"]
+    end
+
+    subgraph SOL["Solana"]
+        S1["Slot produced"] --> S2["~6.4 seconds"] --> S3["'finalized'<br/>commitment level"]
+    end
+
+    subgraph BTC["Bitcoin"]
+        BT1["Block mined"] --> BT2["~60 minutes"] --> BT3["6 confirmations<br/>on top"]
+    end
+
+    style E3 fill:#4caf50,color:#fff
+    style B3 fill:#4caf50,color:#fff
+    style S3 fill:#4caf50,color:#fff
+    style BT3 fill:#4caf50,color:#fff
+```
+
+| Chain | Finality Strategy | Time to Finality | How It Works |
+|-------|-------------------|-----------------|--------------|
+| **Ethereum** | `finalized` tag | ~13 minutes | The network's consensus mechanism marks blocks as irreversible. The indexer calls `eth_getBlockByNumber("finalized")` — only blocks with this tag are processed |
+| **Base** | 10 confirmations | ~20 seconds | L2 blocks are fast but need depth. The indexer waits until 10 newer blocks exist on top before processing |
+| **Solana** | `finalized` commitment | ~6.4 seconds | Solana validators vote on blocks. Once 2/3+ of stake confirms, the slot is finalized. The indexer requests `finalized` commitment level |
+| **Bitcoin** | 6 confirmations | ~60 minutes | Each new block makes previous blocks harder to reverse. After 6 blocks deep, reversal is computationally infeasible |
+
+**Why finality-first?** If the indexer credits a deposit from an unfinalized block, and that block gets reorganized (reversed), the money disappears but the credit remains. For a payment system, this is catastrophic. By waiting for finality, the indexer guarantees that every detected deposit is permanent — no reorg detection logic needed.
+
+---
+
+## The Payment Lifecycle
+
+The indexer is one piece of a larger payment infrastructure. Here's where it fits:
+
+```mermaid
+sequenceDiagram
+    participant Customer
+    participant Merchant
+    participant PaymentAPI as Payment API
+    participant Indexer as StableBridge Indexer
+    participant Blockchain
+    participant Kafka
+    participant Consumers as Consumer Services
+
+    Customer->>Merchant: "Pay $50 with USDC"
+    Merchant->>PaymentAPI: Create payment intent
+    PaymentAPI->>Customer: Show wallet address + QR code
+
+    Customer->>Blockchain: Send 50 USDC to 0xABC123
+
+    Note over Blockchain: ⏳ Wait for finality<br/>(13 min ETH / 20s Base / 6s SOL)
+
+    Indexer->>Blockchain: Fetch finalized block
+    Indexer->>Indexer: Parse ERC-20 Transfer events
+    Indexer->>Indexer: Bloom filter: "0xABC123 — hit!"
+    Indexer->>Indexer: DB confirm: "yes, watched address"
+    Indexer->>Kafka: Publish TransferEvent
+
+    Kafka->>Consumers: Deliver event
+
+    Note over Consumers: Payment Matching<br/>Compliance/AML<br/>Webhook Delivery<br/>Reconciliation
+
+    Consumers->>Merchant: Webhook: "Payment confirmed!"
+    Merchant->>Customer: "Your order is confirmed!"
+```
+
+The indexer's only job is **Phase 3: Detection**. It watches every finalized block, finds transfers to watched addresses, and publishes them to Kafka. Everything downstream (payment matching, compliance, webhooks) consumes those events independently.
 
 ---
 
