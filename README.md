@@ -51,42 +51,50 @@ Real-time stablecoin deposit detection across three chain types, ready for payme
 
 Blockchains are **append-only ledgers**. Every transaction ever made is stored on-chain — but there's no built-in way to ask "did anyone send USDC to my wallet in the last 5 minutes?"
 
-### The naive approach (and why it fails)
+### The Naive Approach (and Why It Fails)
 
+> **🎬 A Conversation You Can't Have with a Blockchain**
+
+```text
+ 🖥️  Your App       ──→  "Hey Ethereum, any deposits to 0xABC?"
+ ⛓️  Ethereum       ──→  "I don't know. Here's block #21,000,000. You figure it out."
+ 🖥️  Your App       ──→  "OK, what about the last 5 minutes?"
+ ⛓️  Ethereum       ──→  "That's ~25 blocks × ~150 transactions × receipts with logs."
+ 🖥️  Your App       ──→  "Just tell me if someone sent USDC to my wallet!"
+ ⛓️  Ethereum       ──→  "I'm a ledger, not a search engine. 🤷"
 ```
-Your App  ──→  "Hey Ethereum, any deposits to 0xABC?"
-Ethereum  ──→  "I don't know. Here's block #21,000,000. You figure it out."
-```
 
-Blockchains expose raw blocks via **RPC endpoints** (`eth_getBlockByNumber`, `getBlock`, `getblockheader`). Each block contains hundreds of transactions, and each transaction can contain dozens of internal operations. To find *your* deposits, you'd need to:
+Blockchains expose raw blocks via **RPC endpoints** (`eth_getBlockByNumber`, `getBlock`, `getblockheader`). To find *your* deposits, you'd need to:
 
-1. **Poll every new block** — Ethereum produces one every ~12 seconds, Solana every ~400ms
-2. **Download every transaction** — including receipts with event logs (EVM) or full instruction data (Solana)
-3. **Parse and decode** — ERC-20 transfers are encoded as hex event logs, Bitcoin uses UTXO linking, Solana uses balance differentials
-4. **Match against your wallets** — check every transfer recipient against your registered addresses
-5. **Handle failures** — RPC rate limits, network outages, node restarts
+| | Step | What It Involves | 😫 Pain Level |
+|---|------|-----------------|--------------|
+| 🔄 | **Poll every new block** | ETH: every ~12s, Solana: every ~400ms, BTC: every ~10min | 🟡 Constant polling |
+| 📥 | **Download every transaction** | Receipts with event logs (EVM), full instructions (Solana), UTXOs (BTC) | 🟠 Massive bandwidth |
+| 🔬 | **Parse and decode** | ERC-20 hex logs, balance differentials, UTXO linking — per chain | 🔴 Chain-specific expertise |
+| 🔍 | **Match against your wallets** | Check every recipient against your registered addresses | 🟠 N × M comparisons |
+| 💥 | **Handle failures** | RPC rate limits, network outages, node restarts, missed blocks | 🔴 Silent data loss |
 
 Doing this correctly across multiple chains, with zero missed deposits and zero false positives, at production scale — that's what an indexer does.
 
-### What the indexer replaces
+### What the Indexer Replaces
 
 ```mermaid
 flowchart LR
-    subgraph Without["Without Indexer"]
+    subgraph Without["❌ Without Indexer"]
         direction TB
-        A1["Your app polls RPC<br/>every N seconds"] --> A2["Downloads full blocks"]
-        A2 --> A3["Parses raw hex data"]
-        A3 --> A4["Scans ALL transfers"]
-        A4 --> A5["Checks against DB<br/>for every transfer"]
-        A5 --> A6["Slow, expensive,<br/>misses deposits on crash"]
+        A1["🔄 Your app polls RPC<br/>every N seconds"] --> A2["📥 Downloads full blocks"]
+        A2 --> A3["🔬 Parses raw hex data"]
+        A3 --> A4["🔍 Scans ALL transfers"]
+        A4 --> A5["🐘 Checks against DB<br/>for every transfer"]
+        A5 --> A6["💀 Slow, expensive,<br/>misses deposits on crash"]
     end
 
-    subgraph With["With StableBridge Indexer"]
+    subgraph With["✅ With StableBridge Indexer"]
         direction TB
-        B1["Workers poll<br/>finalized blocks"] --> B2["Chain-specific parsers<br/>decode transfers"]
-        B2 --> B3["Bloom filter rejects<br/>99.9% in sub-ms"]
-        B3 --> B4["DB confirms<br/>the 0.1% hits"]
-        B4 --> B5["Kafka event delivered<br/>at-least-once"]
+        B1["⛏️ Workers poll<br/>finalized blocks"] --> B2["🔬 Chain-specific parsers<br/>decode transfers"]
+        B2 --> B3["🌸 Bloom filter rejects<br/>99.9% in sub-ms"]
+        B3 --> B4["🐘 DB confirms<br/>the 0.1% hits"]
+        B4 --> B5["📢 Kafka event delivered<br/>at-least-once"]
     end
 
     Without ~~~ With
@@ -98,7 +106,7 @@ flowchart LR
 
 StableBridge indexes three fundamentally different blockchain architectures. Each has its own transaction model, finality mechanism, and way of representing token transfers.
 
-### EVM Chains (Ethereum, Base)
+### ⟠ EVM Chains (Ethereum, Base)
 
 EVM chains use an **account-based model** where each address has a balance, and transactions modify balances directly.
 
@@ -118,30 +126,30 @@ flowchart TB
 
 **Key concepts:**
 
-| Concept | What It Is | Example |
-|---------|-----------|---------|
-| **Block** | A batch of transactions validated together | Block #21,000,000 with ~150 transactions |
-| **Transaction** | A signed instruction to the blockchain | "Call USDC contract's `transfer()` function" |
-| **Receipt** | The result of executing a transaction | Status (success/fail) + event logs |
-| **Event log** | A structured event emitted by a smart contract | `Transfer(from, to, amount)` with indexed topics |
-| **ERC-20** | Token standard with a `Transfer` event signature | `0xddf252ad...` — keccak256 of `Transfer(address,address,uint256)` |
-| **Finality** | When a block can never be reversed | Ethereum: `finalized` tag (~13 min), Base: 10 confirmations |
+| | Concept | What It Is | Example |
+|---|---------|-----------|---------|
+| 📦 | **Block** | A batch of transactions validated together | Block #21,000,000 with ~150 transactions |
+| 📝 | **Transaction** | A signed instruction to the blockchain | "Call USDC contract's `transfer()` function" |
+| 📋 | **Receipt** | The result of executing a transaction | Status (success/fail) + event logs |
+| 📣 | **Event log** | A structured event emitted by a smart contract | `Transfer(from, to, amount)` with indexed topics |
+| 🪙 | **ERC-20** | Token standard with a `Transfer` event signature | `0xddf252ad...` — keccak256 of `Transfer(address,address,uint256)` |
+| 🏁 | **Finality** | When a block can never be reversed | Ethereum: `finalized` tag (~13 min), Base: 10 confirmations |
 
-**How the indexer parses EVM transfers:**
+> **🔬 How the Indexer Parses EVM Transfers**
 
 The `EvmErc20TransferParser` scans every receipt log looking for the ERC-20 Transfer event signature. Only logs from **whitelisted token contracts** (USDC, USDT, DAI, PYUSD, EURC) are processed — unknown tokens are skipped entirely.
 
-```
-Receipt Log                          Decoded Transfer
-─────────────────────               ──────────────────
-topic[0]: 0xddf252ad...  ─────→    Event: Transfer (ERC-20)
-topic[1]: 0x000...sender  ─────→    From:  0xSender
-topic[2]: 0x000...merchant ────→    To:    0xMerchant
-data:     0x00...02faf080  ────→    Amount: 50,000,000 raw → 50.0 USDC (6 decimals)
-log address: 0xA0b8...eB48 ───→    Token:  USDC contract (whitelisted ✓)
+```text
+ 📋 Receipt Log                          🔓 Decoded Transfer
+ ─────────────────────                  ──────────────────
+ topic[0]: 0xddf252ad...  ──────→      📣 Event: Transfer (ERC-20)
+ topic[1]: 0x000...sender  ─────→      📤 From:  0xSender
+ topic[2]: 0x000...merchant ────→      📥 To:    0xMerchant
+ data:     0x00...02faf080  ────→      💰 Amount: 50,000,000 raw → 50.0 USDC (6 decimals)
+ log address: 0xA0b8...eB48 ───→      🪙 Token:  USDC contract (whitelisted ✅)
 ```
 
-### Solana
+### ◎ Solana
 
 Solana uses an **account-based model** like EVM but with a fundamentally different execution model. Instead of event logs, transfers are detected by **comparing token balances before and after** a transaction.
 
@@ -163,32 +171,32 @@ flowchart TB
 
 **Key concepts:**
 
-| Concept | What It Is | EVM Equivalent |
-|---------|-----------|----------------|
-| **Slot** | A time window (~400ms) where a validator can produce a block | Block (but faster — ~150 slots/minute) |
-| **Transaction** | An atomic set of instructions signed by one or more wallets | Transaction |
-| **Instruction** | A single operation within a transaction (e.g., "transfer 50 USDC") | Internal transaction / contract call |
-| **SPL Token** | Solana's token standard (like ERC-20 for EVM) | ERC-20 |
-| **Mint address** | The token's identity on Solana | Token contract address |
-| **Token account** | A separate account that holds a specific token for a wallet | Balance within ERC-20 contract |
-| **Finality** | Solana's `finalized` commitment (~6.4 seconds) | Ethereum's `finalized` tag |
+| | Concept | What It Is | ⟠ EVM Equivalent |
+|---|---------|-----------|----------------|
+| 🕐 | **Slot** | Time window (~400ms) where a validator produces a block | Block (but faster — ~150 slots/minute) |
+| 📝 | **Transaction** | An atomic set of instructions signed by one or more wallets | Transaction |
+| ⚙️ | **Instruction** | A single operation within a transaction (e.g., "transfer 50 USDC") | Internal transaction / contract call |
+| 🪙 | **SPL Token** | Solana's token standard (like ERC-20 for EVM) | ERC-20 |
+| 🏷️ | **Mint address** | The token's identity on Solana | Token contract address |
+| 💳 | **Token account** | A separate account that holds a specific token for a wallet | Balance within ERC-20 contract |
+| 🏁 | **Finality** | Solana's `finalized` commitment (~6.4 seconds) | Ethereum's `finalized` tag |
 
-**How the indexer parses Solana transfers:**
+> **🔬 How the Indexer Parses Solana Transfers**
 
 The `SolanaSpITransferParser` doesn't look for event logs — instead, it **compares pre-transaction and post-transaction token balances** for whitelisted mint addresses. If a wallet's USDC balance increased, that's an inbound transfer.
 
-```
-Pre-Token Balances                  Post-Token Balances
-──────────────────                  ───────────────────
-MerchantWallet: 200.0 USDC         MerchantWallet: 250.0 USDC  ← increased by 50
-SenderWallet:   100.0 USDC         SenderWallet:    50.0 USDC  ← decreased by 50
+```text
+ 📊 Pre-Token Balances                  📊 Post-Token Balances
+ ──────────────────                     ───────────────────
+ MerchantWallet: 200.0 USDC            MerchantWallet: 250.0 USDC  ← 📈 increased by 50
+ SenderWallet:   100.0 USDC            SenderWallet:    50.0 USDC  ← 📉 decreased by 50
 
-Detected: SenderWallet sent 50 USDC to MerchantWallet
+ ✅ Detected: SenderWallet sent 50 USDC to MerchantWallet
 ```
 
 For **native SOL transfers**, the `SolanaNativeTransferParser` looks for instructions targeting the System Program (`1111...1111`) and computes lamport differences from pre/post balances (1 SOL = 10^9 lamports).
 
-### Bitcoin
+### ₿ Bitcoin
 
 Bitcoin uses a fundamentally different model: **UTXO (Unspent Transaction Output)**. There are no accounts or balances — only a chain of inputs and outputs.
 
@@ -213,29 +221,29 @@ flowchart LR
 
 **Key concepts:**
 
-| Concept | What It Is | EVM/Solana Equivalent |
-|---------|-----------|----------------------|
-| **UTXO** | An unspent output from a previous transaction — like a specific banknote | Account balance (but discrete, not aggregated) |
-| **Input (vin)** | References and spends a previous UTXO | "From" address |
-| **Output (vout)** | Creates a new UTXO — the recipient and amount | "To" address + amount |
-| **scriptPubKey** | The locking script that defines who can spend an output | Account ownership |
-| **Prevout** | The previous output being spent by an input | N/A (accounts have running balances) |
-| **Change output** | Leftover UTXO sent back to the sender | N/A (exact amounts in EVM/Solana) |
-| **Coinbase tx** | Mining reward transaction (no inputs) — skipped by indexer | N/A |
-| **Finality** | 6 confirmations (~60 minutes) | Ethereum: ~13 min, Solana: ~6 seconds |
+| | Concept | What It Is | ⟠/◎ Equivalent |
+|---|---------|-----------|----------------------|
+| 💵 | **UTXO** | An unspent output from a previous TX — like a specific banknote | Account balance (but discrete, not aggregated) |
+| 📥 | **Input (vin)** | References and spends a previous UTXO | "From" address |
+| 📤 | **Output (vout)** | Creates a new UTXO — the recipient and amount | "To" address + amount |
+| 🔐 | **scriptPubKey** | The locking script that defines who can spend an output | Account ownership |
+| 🔗 | **Prevout** | The previous output being spent by an input | N/A (accounts have running balances) |
+| 🔄 | **Change output** | Leftover UTXO sent back to the sender | N/A (exact amounts in EVM/Solana) |
+| ⛏️ | **Coinbase tx** | Mining reward transaction (no inputs) — skipped by indexer | N/A |
+| 🏁 | **Finality** | 6 confirmations (~60 minutes) | Ethereum: ~13 min, Solana: ~6 seconds |
 
-**How the indexer parses Bitcoin transfers:**
+> **🔬 How the Indexer Parses Bitcoin Transfers**
 
-The `BitcoinTransferParser` processes each transaction's outputs (vout). For each output, it extracts the recipient address from the `scriptPubKey` and the BTC amount. The sender is resolved from the first input's `prevout` (the previous transaction's output that's being spent). Coinbase transactions (mining rewards) are skipped.
+The `BitcoinTransferParser` processes each transaction's outputs (vout). For each output, it extracts the recipient address from the `scriptPubKey` and the BTC amount. The sender is resolved from the first input's `prevout`. Coinbase transactions (mining rewards) are skipped.
 
-```
-Transaction abc123...
-├── vin[0]:  spends previous tx output → prevout.address = "bc1qSender"
-├── vout[0]: 0.30000000 BTC → scriptPubKey.address = "bc1qMerchant"  ← indexed
-├── vout[1]: 0.19990000 BTC → scriptPubKey.address = "bc1qSender"    ← change (indexed if watched)
-└── fee:     0.00010000 BTC (implicit)
+```text
+ 📝 Transaction abc123...
+ ├── 📥 vin[0]:  spends previous tx output → prevout.address = "bc1qSender"
+ ├── 📤 vout[0]: 0.30000000 BTC → scriptPubKey.address = "bc1qMerchant"  ← 🔍 indexed
+ ├── 🔄 vout[1]: 0.19990000 BTC → scriptPubKey.address = "bc1qSender"    ← change
+ └── 💸 fee:     0.00010000 BTC (implicit: inputs - outputs)
 
-Detected: bc1qSender sent 0.3 BTC to bc1qMerchant (if bc1qMerchant is a watched address)
+ ✅ Detected: bc1qSender sent 0.3 BTC to bc1qMerchant (if bc1qMerchant is watched)
 ```
 
 ---
@@ -243,6 +251,22 @@ Detected: bc1qSender sent 0.3 BTC to bc1qMerchant (if bc1qMerchant is a watched 
 ## Finality: When Is a Deposit "Real"?
 
 The single most important concept for a payment indexer is **finality** — when can you guarantee that a transaction will never be reversed?
+
+> **🎬 The Nightmare Scenario Without Finality**
+>
+> ```text
+>  ⛓️ Block #100  │ Customer sends 50 USDC to your wallet
+>  ✅ Your system  │ "Deposit detected! Credit the customer."
+>  📦 Fulfillment  │ "Order shipped!"
+>  
+>                    ⏳ ... 2 minutes later ...
+>  
+>  💥 REORG!        │ Block #100 is replaced by a different block #100
+>  👻 New block     │ The 50 USDC transfer? Never happened.
+>  💸 Result        │ You shipped the order. The money is gone. 
+>  
+>  💡 This is why the indexer ONLY processes finalized blocks.
+> ```
 
 ```mermaid
 flowchart LR
@@ -268,14 +292,16 @@ flowchart LR
     style BT3 fill:#4caf50,color:#fff
 ```
 
-| Chain | Finality Strategy | Time to Finality | How It Works |
-|-------|-------------------|-----------------|--------------|
-| **Ethereum** | `finalized` tag | ~13 minutes | The network's consensus mechanism marks blocks as irreversible. The indexer calls `eth_getBlockByNumber("finalized")` — only blocks with this tag are processed |
-| **Base** | 10 confirmations | ~20 seconds | L2 blocks are fast but need depth. The indexer waits until 10 newer blocks exist on top before processing |
-| **Solana** | `finalized` commitment | ~6.4 seconds | Solana validators vote on blocks. Once 2/3+ of stake confirms, the slot is finalized. The indexer requests `finalized` commitment level |
-| **Bitcoin** | 6 confirmations | ~60 minutes | Each new block makes previous blocks harder to reverse. After 6 blocks deep, reversal is computationally infeasible |
+| | Chain | Finality Strategy | ⏱️ Time | How It Works |
+|---|-------|-------------------|---------|--------------|
+| ⟠ | **Ethereum** | `finalized` tag | ~13 min | Consensus marks blocks irreversible. Indexer calls `eth_getBlockByNumber("finalized")` |
+| ⟠ | **Base** | 10 confirmations | ~20 sec | L2 blocks are fast but need depth. Waits for 10 blocks on top |
+| ◎ | **Solana** | `finalized` commitment | ~6.4 sec | 2/3+ of validator stake confirms the slot. Fastest finality |
+| ₿ | **Bitcoin** | 6 confirmations | ~60 min | Each new block makes reversal exponentially harder. 6 deep = infeasible |
 
-**Why finality-first?** If the indexer credits a deposit from an unfinalized block, and that block gets reorganized (reversed), the money disappears but the credit remains. For a payment system, this is catastrophic. By waiting for finality, the indexer guarantees that every detected deposit is permanent — no reorg detection logic needed.
+> **💡 Why Finality-First?**
+>
+> If the indexer credits a deposit from an unfinalized block, and that block gets reorganized (reversed), the money disappears but the credit remains. For a payment system, this is **catastrophic**. By waiting for finality, every detected deposit is permanent — no reorg detection logic needed.
 
 ---
 
@@ -283,39 +309,67 @@ flowchart LR
 
 The indexer is one piece of a larger payment infrastructure. Here's where it fits:
 
+> **🎬 From Customer Click to "Order Confirmed!"**
+>
+> ```text
+>  👤 Customer    │ "I'll pay $50 with USDC"
+>  🏪 Merchant    │ Creates payment intent
+>  📱 Payment API │ Shows wallet address + QR code
+>  
+>  ──── Phase 1: Customer Pays ────
+>  👤 Customer    │ Sends 50 USDC to 0xABC123 on Ethereum
+>  
+>  ──── Phase 2: Wait for Finality ────
+>  ⛓️ Ethereum    │ ⏳ ~13 minutes until block is finalized...
+>  
+>  ──── Phase 3: Detection (THIS IS THE INDEXER) ────
+>  🔍 Indexer     │ Fetches finalized block
+>                 │ Parses ERC-20 Transfer logs
+>                 │ 🌸 Bloom filter: "0xABC123?" → HIT!
+>                 │ 🐘 DB confirm: "Yes, watched address" ✅
+>                 │ 📢 Publish TransferEvent to Kafka
+>  
+>  ──── Phase 4: Downstream Processing ────
+>  📢 Kafka       │ Delivers event to consumers
+>  💳 Matching    │ Links deposit to payment intent
+>  🛡️ Compliance  │ AML/KYC checks
+>  🔔 Webhooks    │ Notifies merchant
+>  🏪 Merchant    │ "Your order is confirmed!" ✅
+> ```
+
 ```mermaid
 sequenceDiagram
-    participant Customer
-    participant Merchant
-    participant PaymentAPI as Payment API
-    participant Indexer as StableBridge Indexer
-    participant Blockchain
-    participant Kafka
-    participant Consumers as Consumer Services
+    participant Customer as 👤 Customer
+    participant Merchant as 🏪 Merchant
+    participant PaymentAPI as 📱 Payment API
+    participant Indexer as 🔍 StableBridge Indexer
+    participant Blockchain as ⛓️ Blockchain
+    participant Kafka as 📢 Kafka
+    participant Consumers as ⚙️ Consumer Services
 
-    Customer->>Merchant: "Pay $50 with USDC"
+    Customer->>Merchant: 💳 "Pay $50 with USDC"
     Merchant->>PaymentAPI: Create payment intent
-    PaymentAPI->>Customer: Show wallet address + QR code
+    PaymentAPI->>Customer: 📱 Show wallet address + QR code
 
-    Customer->>Blockchain: Send 50 USDC to 0xABC123
+    Customer->>Blockchain: 📤 Send 50 USDC to 0xABC123
 
     Note over Blockchain: ⏳ Wait for finality<br/>(13 min ETH / 20s Base / 6s SOL)
 
-    Indexer->>Blockchain: Fetch finalized block
-    Indexer->>Indexer: Parse ERC-20 Transfer events
-    Indexer->>Indexer: Bloom filter: "0xABC123 — hit!"
-    Indexer->>Indexer: DB confirm: "yes, watched address"
-    Indexer->>Kafka: Publish TransferEvent
+    Indexer->>Blockchain: 📦 Fetch finalized block
+    Indexer->>Indexer: 🔬 Parse ERC-20 Transfer events
+    Indexer->>Indexer: 🌸 Bloom filter: "0xABC123 — hit!"
+    Indexer->>Indexer: 🐘 DB confirm: "yes, watched address"
+    Indexer->>Kafka: 📢 Publish TransferEvent
 
-    Kafka->>Consumers: Deliver event
+    Kafka->>Consumers: ✅ Deliver event
 
-    Note over Consumers: Payment Matching<br/>Compliance/AML<br/>Webhook Delivery<br/>Reconciliation
+    Note over Consumers: 💳 Payment Matching<br/>🛡️ Compliance/AML<br/>🔔 Webhook Delivery<br/>📊 Reconciliation
 
-    Consumers->>Merchant: Webhook: "Payment confirmed!"
-    Merchant->>Customer: "Your order is confirmed!"
+    Consumers->>Merchant: 🔔 Webhook: "Payment confirmed!"
+    Merchant->>Customer: ✅ "Your order is confirmed!"
 ```
 
-The indexer's only job is **Phase 3: Detection**. It watches every finalized block, finds transfers to watched addresses, and publishes them to Kafka. Everything downstream (payment matching, compliance, webhooks) consumes those events independently.
+The indexer's only job is **Phase 3: Detection** 🔍. It watches every finalized block, finds transfers to watched addresses, and publishes them to Kafka. Everything downstream (payment matching, compliance, webhooks) consumes those events independently.
 
 ---
 
@@ -398,7 +452,7 @@ flowchart TB
 
 The project follows **hexagonal architecture** with 5 ArchUnit rules enforced at build time:
 
-```
+```text
 domain/                    Pure business logic — no framework imports
   model/                   Transfer, IndexedBlock, BlockResult, WalletAddress, enums
   port/                    ChainIndexer, AddressFilter, TransferEventPublisher,
@@ -435,7 +489,7 @@ application/               Spring Boot wiring — controllers, config, propertie
 
 ## Project Structure
 
-```
+```text
 stablebridge-indexer/
 ├── stablebridge-indexer/              # Main application module
 │   └── src/
@@ -477,24 +531,24 @@ Every block goes through a five-stage pipeline inside `BaseWorker.processBlock()
 
 ```mermaid
 flowchart LR
-    A["1. Fetch<br/><i>Finalized block<br/>+ receipts</i>"] --> B["2. Parse<br/><i>ERC-20 Transfer<br/>events (whitelist)</i>"]
-    B --> C["3. Match<br/><i>Bloom filter<br/>+ DB confirm</i>"]
-    C --> D["4. Publish<br/><i>Kafka event<br/>(at-least-once)</i>"]
-    D --> E["5. Save<br/><i>Redis progress<br/>checkpoint</i>"]
+    A["1️⃣ Fetch<br/><i>📦 Finalized block<br/>+ receipts</i>"] --> B["2️⃣ Parse<br/><i>🔬 ERC-20 Transfer<br/>events (whitelist)</i>"]
+    B --> C["3️⃣ Match<br/><i>🌸 Bloom filter<br/>+ 🐘 DB confirm</i>"]
+    C --> D["4️⃣ Publish<br/><i>📢 Kafka event<br/>(at-least-once)</i>"]
+    D --> E["5️⃣ Save<br/><i>💾 Redis progress<br/>checkpoint</i>"]
 
     style D fill:#ff9800,color:#000
     style E fill:#4caf50,color:#000
 ```
 
-> **Critical ordering**: Step 4 (Kafka publish) happens **before** step 5 (Redis save). If the app crashes between them, the block is reprocessed on restart — duplicates are safe, missed deposits are not.
+> **⚠️ Critical ordering**: Step 4 (Kafka publish) happens **before** Step 5 (Redis save). If the app crashes between them, the block is reprocessed on restart — duplicates are safe, missed deposits are not.
 
-| Stage | Component | What It Does |
-|-------|-----------|-------------|
-| **Fetch** | `EvmRpcClient` | Fetches finalized block + transaction receipts via JSON-RPC batch (150 receipts -> 3 HTTP calls) |
-| **Parse** | `EvmErc20TransferParser` | Scans receipt logs for `Transfer(address,address,uint256)` events matching whitelisted token contracts |
-| **Match** | `RedisBloomAddressFilter` + `WalletAddressRepository` | Bloom filter (sub-ms) eliminates 99.9%+ non-matches, then PostgreSQL confirms — zero false positives |
-| **Publish** | `KafkaTransferEventPublisher` | Sends to `transfer.events.<chainId>`, key = `toAddress`, idempotent producer enabled |
-| **Save** | `RedisBlockProgressStore` | Persists last processed block number to Redis Hash `indexer:progress` |
+| | Stage | Component | What It Does |
+|---|-------|-----------|-------------|
+| 📦 | **Fetch** | `EvmRpcClient` | Fetches finalized block + transaction receipts via JSON-RPC batch (150 receipts → 3 HTTP calls) |
+| 🔬 | **Parse** | `EvmErc20TransferParser` | Scans receipt logs for `Transfer(address,address,uint256)` events matching whitelisted token contracts |
+| 🌸 | **Match** | `RedisBloomAddressFilter` + `WalletAddressRepository` | Bloom filter (sub-ms) eliminates 99.9%+ non-matches, then PostgreSQL confirms — zero false positives |
+| 📢 | **Publish** | `KafkaTransferEventPublisher` | Sends to `transfer.events.<chainId>`, key = `toAddress`, idempotent producer enabled |
+| 💾 | **Save** | `RedisBlockProgressStore` | Persists last processed block number to Redis Hash `indexer:progress` |
 
 ### ERC-20 Transfer Parsing
 
@@ -519,28 +573,48 @@ Every RPC call passes through three layers of protection:
 
 If all RPCs fail, the circuit breaker opens and the worker transitions to **PARKED** state. A background health probe runs every 60 seconds — when an RPC recovers, the worker auto-resumes to **RUNNING**.
 
-### Bloom + DB Double-Check
+### 🌸 Bloom + 🐘 DB Double-Check
 
 This is the core matching strategy that makes the system both fast and financially correct:
 
-```
-                    ┌─────────────────────┐
-  Transfer found    │  Redis Bloom Filter  │  Sub-millisecond, 0.1% false positive rate
-  in block logs  ──>│  BF.EXISTS key addr  │  Per-network-type: indexer:bloom:EVM, :SOLANA, :BITCOIN
-                    └────────┬────────────┘
-                             │ might contain?
-                    ┌────────v────────────┐
-                    │  PostgreSQL Confirm  │  Zero false positives
-                    │  SELECT EXISTS(...)  │  wallet_addresses table
-                    └────────┬────────────┘
-                             │ confirmed?
-                    ┌────────v────────────┐
-                    │   Kafka Publish     │  topic: transfer.events.<chainId>
-                    │   key: toAddress    │  At-least-once delivery
-                    └─────────────────────┘
+> **🎬 How 1 Million Transfers Become 1,000 DB Queries**
+>
+> ```text
+>  📥 1,000,000 transfers/day from all chains
+>       │
+>       ▼
+>  🌸 Redis Bloom Filter (sub-millisecond, per transfer)
+>  ├── 999,000 transfers → ❌ "Not your wallet" (instant reject)
+>  └──   1,000 transfers → 🤔 "Might be yours!" (0.1% pass through)
+>            │
+>            ▼
+>  🐘 PostgreSQL Confirm (actual DB query)
+>  ├── 900 transfers → ❌ False positive (Bloom said yes, DB says no)
+>  └── 100 transfers → ✅ REAL MATCH! Your wallet!
+>            │
+>            ▼
+>  📢 Kafka Publish (at-least-once)
+>       100 genuine TransferEvents delivered
+> ```
+
+```text
+                    ┌─────────────────────────┐
+  Transfer found    │  🌸 Redis Bloom Filter   │  Sub-millisecond, 0.1% false positive rate
+  in block logs  ──>│  BF.EXISTS key addr      │  Per-network-type: indexer:bloom:EVM, :SOLANA, :BITCOIN
+                    └────────┬────────────────┘
+                             │ 🤔 might contain?
+                    ┌────────v────────────────┐
+                    │  🐘 PostgreSQL Confirm   │  Zero false positives
+                    │  SELECT EXISTS(...)      │  wallet_addresses table
+                    └────────┬────────────────┘
+                             │ ✅ confirmed!
+                    ┌────────v────────────────┐
+                    │  📢 Kafka Publish        │  topic: transfer.events.<chainId>
+                    │  key: toAddress          │  At-least-once delivery
+                    └─────────────────────────┘
 ```
 
-The Bloom filter eliminates 99.9%+ of non-matching transfers in sub-millisecond time. Only the rare Bloom hits reach the database — this keeps PostgreSQL load minimal even at millions of transfers per day.
+💡 The Bloom filter eliminates 99.9%+ of non-matching transfers in sub-millisecond time. Only the rare Bloom hits reach the database — this keeps PostgreSQL load minimal even at millions of transfers per day.
 
 ---
 
@@ -931,13 +1005,13 @@ stateDiagram-v2
 
 ## Delivery Guarantees
 
-| Guarantee | Implementation |
-|-----------|---------------|
-| **At-least-once delivery** | Kafka publish happens BEFORE Redis progress save. If the process crashes after Kafka but before Redis, the block is reprocessed on restart. |
-| **Zero false positives** | Bloom filter match is always confirmed against PostgreSQL `wallet_addresses` table. |
-| **Consumer idempotency** | Dedup key: `txHash + toAddress + networkType`. All consumers must implement this. |
-| **Finality-first** | Only finalized blocks are indexed. No reorg detection needed. |
-| **Whitelist-only tokens** | Only configured stablecoin contracts are parsed. Unknown tokens are skipped. |
+| | Guarantee | Implementation |
+|---|-----------|---------------|
+| 📢 | **At-least-once delivery** | Kafka publish happens BEFORE Redis progress save. Crash after Kafka but before Redis? Block is reprocessed. Duplicates are safe, missed deposits are not. |
+| 🎯 | **Zero false positives** | Bloom filter match is always confirmed against PostgreSQL `wallet_addresses` table. |
+| 🔑 | **Consumer idempotency** | Dedup key: `txHash + toAddress + networkType`. All consumers must implement this. |
+| 🏁 | **Finality-first** | Only finalized blocks are indexed. No reorg detection needed. |
+| ✅ | **Whitelist-only tokens** | Only configured stablecoin contracts are parsed. Unknown tokens are skipped. |
 
 ### Kafka Topics
 
@@ -952,17 +1026,17 @@ Events are published to per-chain topics with the pattern `transfer.events.<chai
 
 ## Key Design Decisions
 
-| # | Decision | Choice | Problem It Solves |
+| # | Decision | Choice | 💡 Problem It Solves |
 |---|----------|--------|-------------------|
-| 1 | **Finalized blocks only** | No reorg detection | Block reorganizations can reverse transactions — indexing only finalized blocks eliminates financial risk entirely |
-| 2 | **Bloom + DB confirm** | Double-check pattern | A Bloom filter alone has 0.1% false positives — unacceptable for financial systems. DB confirm eliminates them while keeping 99.9% of lookups in sub-millisecond Redis |
-| 3 | **Kafka before Redis** | At-least-once ordering | If progress is saved before publishing, a crash loses the transfer event. Reversing the order means duplicates (safe) instead of data loss (catastrophic) |
-| 4 | **Per-chain Kafka topics** | `transfer.events.<chainId>` | Chain-level fault isolation — a slow Bitcoin consumer doesn't block Ethereum event processing |
-| 5 | **Virtual Threads** | Single global executor | Platform threads are expensive; virtual threads handle thousands of concurrent tasks. RPC rate limits (not threads) are the real bottleneck |
-| 6 | **JDK HttpClient** | No Spring WebClient | Direct HTTP/1.1 client with virtual threads gives maximum RPC throughput with zero Spring coupling in infrastructure |
-| 7 | **JSON-RPC batch** | Configurable batch size (default 50) | Ethereum blocks have ~150 transactions. Without batching, that's 150 HTTP calls. With batch size 50, it's 3 calls |
-| 8 | **Redis for progress** | Hash + Sorted Set | Block progress is write-heavy (every block). Redis handles this at microsecond latency. PostgreSQL is reserved for read-mostly wallet addresses |
-| 9 | **API key auth** | `X-API-Key` header | Internal service-to-service communication. OAuth2/JWT is deferred until external-facing deployment is needed |
+| 🏁 | **Finalized blocks only** | No reorg detection | Block reorgs can reverse TXs — finalized blocks eliminate financial risk entirely |
+| 🌸 | **Bloom + DB confirm** | Double-check pattern | Bloom alone has 0.1% false positives — unacceptable for finance. DB confirm = zero FP, 99.9% stay in sub-ms Redis |
+| 📢 | **Kafka before Redis** | At-least-once ordering | Progress saved before publishing? Crash = lost event 💀. Reverse the order = duplicates (safe) instead of data loss |
+| 🔀 | **Per-chain Kafka topics** | `transfer.events.<chainId>` | Fault isolation — a slow Bitcoin consumer doesn't block Ethereum events |
+| 🧵 | **Virtual Threads** | Single global executor | Platform threads are expensive; VTs handle thousands of tasks. RPC rate limits are the real bottleneck |
+| 🔌 | **JDK HttpClient** | No Spring WebClient | Direct HTTP/1.1 + VTs = max RPC throughput with zero Spring coupling |
+| 📦 | **JSON-RPC batch** | Configurable (default 50) | 150 receipts per block → without batching: 150 HTTP calls. With batch 50: just 3 calls |
+| ⚡ | **Redis for progress** | Hash + Sorted Set | Write-heavy (every block). Redis = microsecond latency. PostgreSQL reserved for read-mostly wallets |
+| 🔐 | **API key auth** | `X-API-Key` header | Internal service-to-service. OAuth2/JWT deferred until external-facing deployment |
 
 For the full set of 21 architecture decisions with status, rationale, and consequences, see [`docs/architecture-decisions.md`](docs/architecture-decisions.md).
 
