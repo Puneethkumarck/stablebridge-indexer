@@ -9,6 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -220,27 +222,23 @@ class RedisBloomAddressFilterTest {
             filter.initializeFilters();
 
             // then
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:EVM"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:SOLANA"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:BITCOIN"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
+            for (var networkType : NetworkType.values()) {
+                then(redisTemplate).should().execute(BF_RESERVE_SCRIPT,
+                        List.of("indexer:bloom:" + networkType.name()),
+                        String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
+            }
         }
 
         @Test
         @DisplayName("handles existing bloom filter gracefully without throwing")
         void handlesExistingFilterGracefully() {
             // given
-            given(redisTemplate.execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:EVM"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS)))
-                    .willThrow(new RuntimeException("ERR item exists"));
-            given(redisTemplate.execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:SOLANA"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS)))
-                    .willThrow(new RuntimeException("ERR item exists"));
-            given(redisTemplate.execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:BITCOIN"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS)))
-                    .willThrow(new RuntimeException("ERR item exists"));
+            for (var networkType : NetworkType.values()) {
+                given(redisTemplate.execute(BF_RESERVE_SCRIPT,
+                        List.of("indexer:bloom:" + networkType.name()),
+                        String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS)))
+                        .willThrow(new RuntimeException("ERR item exists"));
+            }
 
             // when / then — no exception propagates
             assertThatCode(() -> filter.initializeFilters()).doesNotThrowAnyException();
@@ -259,6 +257,60 @@ class RedisBloomAddressFilterTest {
                         .gauge();
                 assertThat(gauge).isNotNull();
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("address normalization")
+    class AddressNormalization {
+
+        private static final String MIXED_CASE_ADDRESS = "TAbCdEf1234567890xYz";
+        private static final String MIXED_CASE_ADDRESS_LOWER = MIXED_CASE_ADDRESS.toLowerCase();
+
+        @ParameterizedTest
+        @EnumSource(value = NetworkType.class, names = {"TRON", "APTOS", "SUI", "COSMOS", "TON"})
+        @DisplayName("lowercases address for case-insensitive network types")
+        void lowercasesAddressForCaseInsensitiveNetworkTypes(NetworkType networkType) {
+            // given
+            var bloomKey = "indexer:bloom:" + networkType.name();
+
+            // when
+            filter.add(MIXED_CASE_ADDRESS, networkType);
+
+            // then
+            then(redisTemplate).should()
+                    .execute(BF_ADD_SCRIPT, List.of(bloomKey), MIXED_CASE_ADDRESS_LOWER);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = NetworkType.class, names = {"TRON", "APTOS", "SUI", "COSMOS", "TON"})
+        @DisplayName("lowercases address when checking bloom filter for case-insensitive network types")
+        void lowercasesAddressWhenCheckingBloomFilter(NetworkType networkType) {
+            // given
+            var bloomKey = "indexer:bloom:" + networkType.name();
+            given(redisTemplate.execute(BF_EXISTS_SCRIPT, List.of(bloomKey), MIXED_CASE_ADDRESS_LOWER))
+                    .willReturn(1L);
+
+            // when
+            var result = filter.mightContain(MIXED_CASE_ADDRESS, networkType);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = NetworkType.class, names = {"SOLANA", "BITCOIN"})
+        @DisplayName("preserves address case for case-sensitive network types")
+        void preservesAddressCaseForCaseSensitiveNetworkTypes(NetworkType networkType) {
+            // given
+            var bloomKey = "indexer:bloom:" + networkType.name();
+
+            // when
+            filter.add(MIXED_CASE_ADDRESS, networkType);
+
+            // then
+            then(redisTemplate).should()
+                    .execute(BF_ADD_SCRIPT, List.of(bloomKey), MIXED_CASE_ADDRESS);
         }
     }
 }
