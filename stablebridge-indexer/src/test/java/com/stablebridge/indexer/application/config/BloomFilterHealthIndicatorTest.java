@@ -1,5 +1,6 @@
 package com.stablebridge.indexer.application.config;
 
+import com.stablebridge.indexer.domain.model.NetworkType;
 import com.stablebridge.indexer.domain.port.AddressFilter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -13,6 +14,7 @@ import org.springframework.boot.health.contributor.Health;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.stablebridge.indexer.application.config.BloomFilterHealthIndicator.BLOOM_SIZE_METRIC;
@@ -44,19 +46,26 @@ class BloomFilterHealthIndicatorTest {
     @DisplayName("reports UP when all bloom filters are available")
     void reportsUpWhenAllFiltersAvailable() {
         // given
-        given(addressFilter.mightContain(PROBE_ADDRESS, EVM)).willReturn(false);
-        given(addressFilter.mightContain(PROBE_ADDRESS, SOLANA)).willReturn(false);
-        given(addressFilter.mightContain(PROBE_ADDRESS, BITCOIN)).willReturn(false);
+        for (var networkType : NetworkType.values()) {
+            given(addressFilter.mightContain(PROBE_ADDRESS, networkType)).willReturn(false);
+        }
 
         registerBloomSizeGauge(EVM.name(), 150);
         registerBloomSizeGauge(SOLANA.name(), 50);
         registerBloomSizeGauge(BITCOIN.name(), 0);
 
+        var expectedFilters = new LinkedHashMap<String, Map<String, Object>>();
+        expectedFilters.put("EVM", filterDetail(true, 150L));
+        expectedFilters.put("SOLANA", filterDetail(true, 50L));
+        expectedFilters.put("BITCOIN", filterDetail(true, 0L));
+        expectedFilters.put("TRON", filterDetail(true, 0L));
+        expectedFilters.put("APTOS", filterDetail(true, 0L));
+        expectedFilters.put("SUI", filterDetail(true, 0L));
+        expectedFilters.put("COSMOS", filterDetail(true, 0L));
+        expectedFilters.put("TON", filterDetail(true, 0L));
+
         var expected = Health.up()
-                .withDetail("filters", buildExpectedFilters(
-                        filterDetail(true, 150L),
-                        filterDetail(true, 50L),
-                        filterDetail(true, 0L)))
+                .withDetail("filters", expectedFilters)
                 .build();
 
         // when
@@ -74,15 +83,23 @@ class BloomFilterHealthIndicatorTest {
         given(addressFilter.mightContain(PROBE_ADDRESS, SOLANA))
                 .willThrow(new RuntimeException("Redis connection refused"));
         given(addressFilter.mightContain(PROBE_ADDRESS, BITCOIN)).willReturn(false);
+        stubRemainingNetworkTypesAsAvailable(EVM, SOLANA, BITCOIN);
 
         registerBloomSizeGauge(EVM.name(), 100);
         registerBloomSizeGauge(BITCOIN.name(), 0);
 
+        var expectedFilters = new LinkedHashMap<String, Map<String, Object>>();
+        expectedFilters.put("EVM", filterDetail(true, 100L));
+        expectedFilters.put("SOLANA", filterDetail(false, 0L));
+        expectedFilters.put("BITCOIN", filterDetail(true, 0L));
+        expectedFilters.put("TRON", filterDetail(true, 0L));
+        expectedFilters.put("APTOS", filterDetail(true, 0L));
+        expectedFilters.put("SUI", filterDetail(true, 0L));
+        expectedFilters.put("COSMOS", filterDetail(true, 0L));
+        expectedFilters.put("TON", filterDetail(true, 0L));
+
         var expected = Health.down()
-                .withDetail("filters", buildExpectedFilters(
-                        filterDetail(true, 100L),
-                        filterDetail(false, 0L),
-                        filterDetail(true, 0L)))
+                .withDetail("filters", expectedFilters)
                 .build();
 
         // when
@@ -96,15 +113,17 @@ class BloomFilterHealthIndicatorTest {
     @DisplayName("reports entry count as zero when gauge is not registered")
     void reportsZeroEntryCountWhenNoGauge() {
         // given
-        given(addressFilter.mightContain(PROBE_ADDRESS, EVM)).willReturn(false);
-        given(addressFilter.mightContain(PROBE_ADDRESS, SOLANA)).willReturn(false);
-        given(addressFilter.mightContain(PROBE_ADDRESS, BITCOIN)).willReturn(false);
+        for (var networkType : NetworkType.values()) {
+            given(addressFilter.mightContain(PROBE_ADDRESS, networkType)).willReturn(false);
+        }
+
+        var expectedFilters = new LinkedHashMap<String, Map<String, Object>>();
+        for (var networkType : NetworkType.values()) {
+            expectedFilters.put(networkType.name(), filterDetail(true, 0L));
+        }
 
         var expected = Health.up()
-                .withDetail("filters", buildExpectedFilters(
-                        filterDetail(true, 0L),
-                        filterDetail(true, 0L),
-                        filterDetail(true, 0L)))
+                .withDetail("filters", expectedFilters)
                 .build();
 
         // when
@@ -118,18 +137,18 @@ class BloomFilterHealthIndicatorTest {
     @DisplayName("reports DOWN when all bloom filters are unavailable")
     void reportsDownWhenAllFiltersUnavailable() {
         // given
-        given(addressFilter.mightContain(PROBE_ADDRESS, EVM))
-                .willThrow(new RuntimeException("Redis down"));
-        given(addressFilter.mightContain(PROBE_ADDRESS, SOLANA))
-                .willThrow(new RuntimeException("Redis down"));
-        given(addressFilter.mightContain(PROBE_ADDRESS, BITCOIN))
-                .willThrow(new RuntimeException("Redis down"));
+        for (var networkType : NetworkType.values()) {
+            given(addressFilter.mightContain(PROBE_ADDRESS, networkType))
+                    .willThrow(new RuntimeException("Redis down"));
+        }
+
+        var expectedFilters = new LinkedHashMap<String, Map<String, Object>>();
+        for (var networkType : NetworkType.values()) {
+            expectedFilters.put(networkType.name(), filterDetail(false, 0L));
+        }
 
         var expected = Health.down()
-                .withDetail("filters", buildExpectedFilters(
-                        filterDetail(false, 0L),
-                        filterDetail(false, 0L),
-                        filterDetail(false, 0L)))
+                .withDetail("filters", expectedFilters)
                 .build();
 
         // when
@@ -146,15 +165,13 @@ class BloomFilterHealthIndicatorTest {
                 .register(meterRegistry);
     }
 
-    private static Map<String, Map<String, Object>> buildExpectedFilters(
-            Map<String, Object> evmDetail,
-            Map<String, Object> solanaDetail,
-            Map<String, Object> bitcoinDetail) {
-        var filters = new LinkedHashMap<String, Map<String, Object>>();
-        filters.put("EVM", evmDetail);
-        filters.put("SOLANA", solanaDetail);
-        filters.put("BITCOIN", bitcoinDetail);
-        return filters;
+    private void stubRemainingNetworkTypesAsAvailable(NetworkType... alreadyStubbed) {
+        var stubbedSet = Set.of(alreadyStubbed);
+        for (var networkType : NetworkType.values()) {
+            if (!stubbedSet.contains(networkType)) {
+                given(addressFilter.mightContain(PROBE_ADDRESS, networkType)).willReturn(false);
+            }
+        }
     }
 
     private static Map<String, Object> filterDetail(boolean available, long approximateEntryCount) {

@@ -117,7 +117,10 @@ public class RedisBloomAddressFilter implements AddressFilter {
     }
 
     private static String normalizeAddress(String address, NetworkType networkType) {
-        return networkType == NetworkType.EVM ? address.toLowerCase() : address;
+        return switch (networkType) {
+            case EVM, TRON, APTOS, SUI, COSMOS, TON -> address.toLowerCase();
+            case SOLANA, BITCOIN -> address;
+        };
     }
 
     private String bloomKey(NetworkType networkType) {
