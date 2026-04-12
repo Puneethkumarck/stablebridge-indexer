@@ -222,22 +222,11 @@ class RedisBloomAddressFilterTest {
             filter.initializeFilters();
 
             // then
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:EVM"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:SOLANA"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:BITCOIN"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:TRON"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:APTOS"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:SUI"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:COSMOS"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
-            then(redisTemplate).should().execute(BF_RESERVE_SCRIPT, List.of("indexer:bloom:TON"),
-                    String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
+            for (var networkType : NetworkType.values()) {
+                then(redisTemplate).should().execute(BF_RESERVE_SCRIPT,
+                        List.of("indexer:bloom:" + networkType.name()),
+                        String.valueOf(ERROR_RATE), String.valueOf(EXPECTED_INSERTIONS));
+            }
         }
 
         @Test
