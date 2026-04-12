@@ -66,7 +66,7 @@ class TronRpcClient {
                     "Block range cannot exceed %d, requested: %d to %d".formatted(MAX_BLOCK_RANGE, startNum, endNum));
         }
         var endpoint = "/wallet/getblockbylimitnext";
-        var body = serializeRequest(Map.of("startNum", startNum, "endNum", endNum));
+        var body = serializeRequest(Map.of("startNum", startNum, "endNum", endNum, "visible", true));
         var responseBody = executeHttpPost(endpoint, body);
         var result = parseResponse(responseBody, endpoint, TronBlockList.class);
         return result.block() != null ? result.block() : List.of();
