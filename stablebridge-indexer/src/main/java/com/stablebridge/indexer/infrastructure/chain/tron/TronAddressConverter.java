@@ -56,6 +56,9 @@ class TronAddressConverter {
         }
 
         var payload = hexToBytes(normalized);
+        if (payload[0] != TRON_PREFIX) {
+            throw new IllegalArgumentException("TRON address must start with 0x41 prefix");
+        }
         var checksum = computeChecksum(payload);
         var full = new byte[FULL_DECODED_LENGTH];
         System.arraycopy(payload, 0, full, 0, ADDRESS_BYTES_WITH_PREFIX);
@@ -178,11 +181,6 @@ class TronAddressConverter {
                 throw new IllegalArgumentException("invalid hex character at position " + (i * 2));
             }
             out[i] = (byte) ((hi << 4) | lo);
-        }
-        // Validate TRON prefix on 21-byte payloads (defensive)
-        if (out.length == ADDRESS_BYTES_WITH_PREFIX && out[0] != TRON_PREFIX) {
-            throw new IllegalArgumentException(
-                    "TRON address must start with 0x41 prefix");
         }
         return out;
     }

@@ -90,13 +90,45 @@ class TronNativeTransferParserTest {
             var result = parser.parseNativeTransfers(block);
 
             // then
-            assertThat(result).hasSize(2);
-            assertThat(result.get(0).txHash()).isEqualTo("0xtx_1");
-            assertThat(result.get(0).rawAmount()).isEqualTo("1000000");
-            assertThat(result.get(0).transactionIndex()).isEqualTo(0);
-            assertThat(result.get(1).txHash()).isEqualTo("0xtx_2");
-            assertThat(result.get(1).rawAmount()).isEqualTo("2500000");
-            assertThat(result.get(1).transactionIndex()).isEqualTo(1);
+            var expected1 = Transfer.builder()
+                    .txHash("0xtx_1")
+                    .fromAddress(SOME_FROM_HEX)
+                    .toAddress(SOME_TO_HEX)
+                    .rawAmount("1000000")
+                    .amount(new BigDecimal("1.000000"))
+                    .decimals(TRX_DECIMALS)
+                    .tokenSymbol("TRX")
+                    .tokenContractAddress(null)
+                    .blockNumber(SOME_BLOCK_NUMBER)
+                    .blockHash(SOME_BLOCK_ID)
+                    .transactionIndex(0)
+                    .logIndex(-1)
+                    .chainId(TRON_CHAIN)
+                    .timestamp(SOME_BLOCK_TIMESTAMP)
+                    .nativeTransfer(true)
+                    .build();
+            var expected2 = Transfer.builder()
+                    .txHash("0xtx_2")
+                    .fromAddress(SOME_FROM_HEX)
+                    .toAddress(SOME_TO_HEX)
+                    .rawAmount("2500000")
+                    .amount(new BigDecimal("2.500000"))
+                    .decimals(TRX_DECIMALS)
+                    .tokenSymbol("TRX")
+                    .tokenContractAddress(null)
+                    .blockNumber(SOME_BLOCK_NUMBER)
+                    .blockHash(SOME_BLOCK_ID)
+                    .transactionIndex(1)
+                    .logIndex(-1)
+                    .chainId(TRON_CHAIN)
+                    .timestamp(SOME_BLOCK_TIMESTAMP)
+                    .nativeTransfer(true)
+                    .build();
+
+            assertThat(result)
+                    .usingRecursiveComparison()
+                    .withComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                    .isEqualTo(List.of(expected1, expected2));
         }
 
         @Test
